@@ -1,30 +1,53 @@
-# ChatWave Linux
+# ChatWave
 
-A WhatsApp-inspired, phone-free chat interface hosted on GitHub Pages.
+A WhatsApp-inspired, phone-free messaging app. The frontend is a single `index.html` hosted on GitHub Pages; Supabase provides email/password accounts, persistent messages, and real-time updates.
 
-## Included in this first version
+## Features
 
-- Display-name setup without a phone number
-- Create local conversations
-- Search chats and filter unread chats
-- Send messages, emoji, and timestamps
-- Saves demo data in this browser using localStorage
-- Responsive desktop and mobile layout
+- Email + password accounts (no phone number)
+- Unique username that friends can search for
+- Direct conversations created in the shared database
+- Persistent message history and live incoming messages
+- Responsive desktop/mobile layout
+- Database row-level security: only conversation members can read messages or send as themselves
+- Uses a Supabase **publishable** key in the browser; never expose a service-role/secret key
 
-## Important limitation
+## Live site
 
-This is currently a **local demo**, not yet an internet messaging service. Messages are stored in this browser on this device; other people cannot see them. GitHub Pages hosts static files and does not provide a shared database or live messaging by itself.
+https://carl7202.github.io/chatwave-linux/
 
-For real online conversations between friends, the next step is to connect a shared backend such as Supabase (database, authentication, and Realtime), configure row-level security, and add friend/chat membership rules. Never put a Supabase service-role key or other secret in frontend code.
+## Backend
 
-## Publish with GitHub Pages
+- Supabase project: `ChatWave`
+- Project ref: `dhylbrxixjrtqufqrnjh`
+- Region: Europe (London)
+- Tables: `profiles`, `conversations`, `conversation_members`, `messages`
+- Realtime publication includes `public.messages`
 
-1. Open this repository's **Settings**.
-2. Choose **Pages** from the sidebar.
-3. Under **Build and deployment**, choose **Deploy from a branch**.
-4. Select branch `main` and folder `/(root)`, then click **Save**.
-5. Wait for GitHub to publish the site.
+The database schema and RLS policies have been applied to the separate ChatWave project.
 
-Expected site URL: https://carl7202.github.io/chatwave-linux/
+## One-time Supabase Auth setup
 
-The app is in `index.html` at the repository root.
+1. Open [ChatWave Auth URL Configuration](https://supabase.com/dashboard/project/dhylbrxixjrtqufqrnjh/auth/url-configuration).
+2. Set **Site URL** to `https://carl7202.github.io/chatwave-linux/`.
+3. Under **Redirect URLs**, add `https://carl7202.github.io/chatwave-linux/` and save.
+4. In Authentication settings, leave email confirmation enabled if you want confirmation before first sign-in. A new account may need to click the confirmation link before signing in.
+
+## Publish / update
+
+GitHub Actions deploys the repository root to GitHub Pages whenever a commit is pushed to `main`. Check the [Actions tab](https://github.com/Carl7202/chatwave-linux/actions) if the site has not updated yet. The site URL is https://carl7202.github.io/chatwave-linux/.
+
+## User flow
+
+1. Open the live site and create an account with an email, password, and username (3–20 lowercase letters, numbers, or underscores).
+2. Confirm the email if Supabase asks you to.
+3. Sign in.
+4. Use **＋** to search for a friend's username and start a direct chat.
+5. Your friend creates their own account and signs in on their own device. Messages should appear live while both users are connected.
+
+## Security notes
+
+- RLS is enabled on every public table.
+- Direct-conversation creation is handled by a restricted database function; clients cannot insert arbitrary conversation memberships.
+- The browser key is intentionally a publishable key. Never paste a Supabase service-role key into `index.html`.
+- This is a straightforward chat app, not end-to-end encrypted messaging. Do not use it for highly sensitive information.
