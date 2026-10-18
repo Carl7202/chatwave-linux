@@ -437,7 +437,7 @@ async function loadChats(){
  const ids=[...new Set((myMemberships||[]).map(x=>x.conversation_id))];
  if(!ids.length){state.chats=[];renderList();return;}
  const [cRes,memRes,msgRes]=await Promise.all([
-  supabase.from('conversations').select('id,created_at').in('id',ids),
+  supabase.from('conversations').select('id,created_at,kind,name').in('id',ids),
   supabase.from('conversation_members').select('conversation_id,user_id').in('conversation_id',ids),
   supabase.from('messages').select('id,conversation_id,sender_id,body,created_at').in('conversation_id',ids).order('created_at',{ascending:false}).limit(300)
  ]);
@@ -451,43 +451,47 @@ async function loadChats(){
   const members=(memRes.data||[]).filter(m=>m.conversation_id===c.id);
   const other=members.find(m=>m.user_id!==state.user.id);
   const last=latest[c.id];
-  return {id:c.id,name:names[other?.user_id]||'Unknown user',otherId:other?.user_id,created_at:c.created_at,last};
+  const isGroup=c.kind==='group'||members.length>2;return {id:c.id,name:isGroup?(c.name||'Group chat'):(names[other?.user_id]||'Unknown user'),otherId:other?.user_id,created_at:c.created_at,last,isGroup,memberCount:members.length};
  }).sort((a,b)=>new Date(b.last?.created_at||b.created_at)-new Date(a.last?.created_at||a.created_at));
  renderList();
- await setupCallChannels();
+ await setupCallChannels();await loadPresence();
 }
 function current(){return state.chats.find(c=>c.id===state.active);}
 function renderList(){
  const q=$('search').value.toLowerCase();
  const list=state.chats.filter(c=>c.name.toLowerCase().includes(q)||(c.last?.body||'').toLowerCase().includes(q));
- $('chatlist').innerHTML=list.length?list.map(c=>'<button class="chatrow '+(state.active===c.id?'active':'')+'" data-id="'+esc(c.id)+'"><div class="avatar">'+esc(initials(c.name))+'</div><div class="details"><div class="line1"><span class="name">'+esc(c.name)+'</span><span class="time">'+(c.last?time(c.last.created_at):'')+'</span></div><div class="line2"><div class="preview">'+(c.last?esc((c.last.sender_id===state.user.id?'You: ':'')+c.last.body):'No messages yet — say hello!')+'</div></div></div></button>').join(''):'<div class="emptylist">'+(q?'No matching chats.':'No chats yet.<br><br>Tap ＋ to add a friend by invite code.')+'</div>';
+ $('chatlist').innerHTML=list.length?list.map(c=>'<button class="chatrow '+(state.active===c.id?'active':'')+'" data-id="'+esc(c.id)+'"><div class="avatar">'+esc(initials(c.name))+'</div><div class="details"><div class="line1"><span class="name">'+(c.isGroup?'👥 ':'')+esc(c.name)+'</span><span class="time">'+(c.last?time(c.last.created_at):'')+'</span></div><div class="line2"><div class="preview">'+(c.last?esc((c.last.sender_id===state.user.id?'You: ':'')+(c.last.body||((c.last.attachment_name)?'📎 '+c.last.attachment_name:'📎 Attachment'))):'No messages yet — say hello!')+'</div></div></div></button>').join(''):'<div class="emptylist">'+(q?'No matching chats.':'No chats yet.<br><br>Tap ＋ to add a friend by invite code.')+'</div>';
  $('chatlist').querySelectorAll('.chatrow').forEach(b=>b.onclick=()=>openChat(b.dataset.id));
 }
 async function openChat(id){
  state.active=id;const c=current();if(!c)return;
  $('app').classList.add('showchat');$('welcome').hidden=true;$('conversation').hidden=false;
- $('chatAvatar').textContent=initials(c.name);$('chatName').textContent=c.name;$('chatSub').textContent='@'+c.name;
- renderList();await loadMessages(id);
+ $('chatAvatar').textContent=initials(c.name);$('chatName').textContent=c.name;$('chatSub').textContent=c.isGroup?'Group conversation · '+c.memberCount+' members':'@'+c.name+' · '+presenceText(c.otherId);
+ renderList();await bindTypingChannel(id);await loadMessages(id);
 }
 async function loadMessages(id){
  if(!id||!state.user)return;
- const {data,error}=await supabase.from('messages').select('id,conversation_id,sender_id,body,created_at').eq('conversation_id',id).order('created_at',{ascending:true}).limit(500);
+ const {data,error}=await supabase.from('messages').select('id,conversation_id,sender_id,body,created_at,edited_at,deleted_at,attachment_path,attachment_name,attachment_type,reply_to').eq('conversation_id',id).order('created_at',{ascending:true}).limit(500);
  const {data:voicemails, error:voicemailError}=await supabase.from('chatwave_voicemails').select('id,conversation_id,caller_id,recipient_id,storage_path,duration_seconds,created_at').eq('conversation_id',id).order('created_at',{ascending:true}).limit(100);
  if(error){notify(error.message);return;}
  if(voicemailError){console.warn('Could not load voicemails',voicemailError);}
  if(state.active!==id)return;
  const box=$('messages');let lastDay='';
  const timeline=[...(data||[]).map(m=>({...m,_kind:'message'})),...(voicemailError?[]:(voicemails||[]).map(v=>({...v,_kind:'voicemail'})))].sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
- const voicemailHtml={};
+ const voicemailHtml={},messageHtml={};
  for(const v of timeline.filter(x=>x._kind==='voicemail'))voicemailHtml[v.id]=await voicemailMarkup(v);
+ const messageIds=timeline.filter(x=>x._kind==='message').map(m=>m.id);
+ let reactions=[];
+ if(messageIds.length){const {data:rData,error:rError}=await supabase.from('chatwave_message_reactions').select('id,message_id,user_id,emoji').in('message_id',messageIds);if(!rError)reactions=rData||[];}
+ for(const m of timeline.filter(x=>x._kind==='message'))messageHtml[m.id]=await renderMessage(m,reactions);
  box.innerHTML=timeline.map(m=>{
   const d=day(m.created_at);let label='';
   if(d!==lastDay){label='<div class="daylabel">'+esc(d)+'</div>';lastDay=d;}
   if(m._kind==='voicemail')return label+voicemailHtml[m.id];
-  return label+'<div class="msg '+(m.sender_id===state.user.id?'mine':'theirs')+'">'+esc(m.body)+'<div class="stamp">'+time(m.created_at)+(m.sender_id===state.user.id?' <span>✓</span>':'')+'</div></div>';
+  return label+messageHtml[m.id];
  }).join('')||'<div class="emptychat"><h2>Say hello 👋</h2><p>Your messages with '+esc(current()?.name||'your friend')+' will show up here.</p></div>';
  box.querySelectorAll('button.voicemail-play').forEach(btn=>btn.onclick=()=>playAmplifiedVoicemail(btn));
- box.scrollTop=box.scrollHeight;
+ await messageActions();box.scrollTop=box.scrollHeight;
 }
 async function sendMessage(body){
  const c=current();if(!c||!body.trim())return;
