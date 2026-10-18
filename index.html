@@ -293,11 +293,12 @@ async function startSession(user){
  setPresence('online');if(state.presenceTimer)clearInterval(state.presenceTimer);state.presenceTimer=setInterval(()=>setPresence(document.hidden?'idle':(state.presence[state.user.id]?.status||'online')),60000);
  if(state.realtime)await supabase.removeChannel(state.realtime);
  state.realtime=supabase.channel('chatwave-all-messages-'+user.id)
-  .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},payload=>{
+  .on('postgres_changes',{event:'*',schema:'public',table:'messages'},payload=>{
    const m=payload.new;
    if(state.chats.some(c=>c.id===m.conversation_id)){
     loadChats();
     if(state.active===m.conversation_id)loadMessages(state.active);
+    if(payload.eventType==='INSERT'&&m.sender_id!==state.user.id&&document.hidden&&'Notification'in window&&Notification.permission==='granted'){const ch=state.chats.find(x=>x.id===m.conversation_id);new Notification('ChatWave · '+(ch?.name||'New message'),{body:m.body||'Sent an attachment'});}
    }
   })
   .on('postgres_changes',{event:'INSERT',schema:'public',table:'chatwave_voicemails'},payload=>{
@@ -322,6 +323,7 @@ function applyTheme(theme){
 function setPresence(status,custom=''){
  if(!state.user)return;
  const row={user_id:state.user.id,status,custom_status:custom,last_seen:new Date().toISOString(),updated_at:new Date().toISOString()};
+ state.presence[state.user.id]=row;renderList();
  supabase.from('chatwave_presence').upsert(row,{onConflict:'user_id'}).then(({error})=>{if(error)console.warn('Presence update failed',error);});
 }
 function presenceText(userId){
@@ -329,7 +331,7 @@ function presenceText(userId){
  return (p.status==='online'?'🟢 Online':p.status==='idle'?'🌙 Idle':p.status==='dnd'?'⛔ Do Not Disturb':'⚪ Offline')+(p.custom_status?' · '+p.custom_status:'');
 }
 async function loadPresence(){
- const ids=[...new Set(state.chats.map(x=>x.otherId).filter(Boolean))];if(!ids.length)return;
+ const ids=[...new Set([state.user?.id,...state.chats.map(x=>x.otherId).filter(Boolean)].filter(Boolean))];if(!ids.length)return;
  const {data,error}=await supabase.from('chatwave_presence').select('user_id,status,custom_status,last_seen').in('user_id',ids);
  if(error){console.warn('Presence load failed',error);return;}
  state.presence=Object.fromEntries((data||[]).map(p=>[p.user_id,p]));
@@ -589,6 +591,11 @@ function newPeer(c){
  };
  return pc;
 }
+async function renegotiateCall(c){
+ if(!c?.pc||c.pc.signalingState!=='stable')return;
+ const offer=await c.pc.createOffer();await c.pc.setLocalDescription(offer);
+ await sendCallSignal(c.conversationId,{type:'offer',callId:c.id,description:c.pc.localDescription,to:c.otherId});
+}
 async function shareScreen(){
  const c=state.call;if(!c?.pc||c.pc.connectionState!=='connected'){notify('Connect a call before sharing your screen.');return;}
  if(!navigator.mediaDevices?.getDisplayMedia){notify('Screen sharing is not supported in this browser.');return;}
@@ -596,7 +603,8 @@ async function shareScreen(){
   const stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:15},audio:false});
   const track=stream.getVideoTracks()[0];if(!track)return;
   const sender=c.pc.addTrack(track,stream);c.screenTrack=track;c.screenSender=sender;
-  track.onended=()=>{try{c.pc?.removeTrack(sender);}catch{}c.screenTrack=null;c.screenSender=null;$('remoteScreen').hidden=true;$('remoteScreen').srcObject=null;};
+  await renegotiateCall(c);
+  track.onended=async()=>{try{c.pc?.removeTrack(sender);await renegotiateCall(c);}catch{}c.screenTrack=null;c.screenSender=null;$('remoteScreen').hidden=true;$('remoteScreen').srcObject=null;};
   notify('Screen sharing started. Your browser may ask you to choose a window.');
   renderCall('Voice call','Connected · screen sharing');
  }catch(e){if(e.name!=='NotAllowedError')notify('Could not share screen: '+(e.message||'try again'));}
@@ -687,6 +695,7 @@ function profileModal(){
  if(!state.profile){onboardingModal();return;}
  $('overlay').innerHTML='<div class="modalback" id="modalback"><div class="modal"><h2>Your ChatWave identity</h2><p>Your custom fake number is how friends find you. Your invite code lets friends create accounts. Neither is a real phone number or SMS service.</p><label>Your ChatWave number<input readonly value="'+esc(state.profile.phone_number||'Not assigned')+'" style="font-size:18px;font-weight:800;text-align:center"></label><label>Your invite code<input id="myInviteCode" readonly value="'+esc(state.profile.invite_code||'Not assigned')+'" style="font-size:18px;font-weight:800;letter-spacing:1px;text-align:center"></label><button class="primary" id="copyInvite">Copy invite code</button><form id="usernameForm"><label>Display username<input name="username" id="newUsername" maxlength="20" value="'+esc(state.profile.username)+'" required></label><button class="primary" type="submit">Save username</button></form><button class="secondary" id="signoutBtn">Sign out</button><button class="secondary" id="cancelModal">Close</button></div></div>';
  $('cancelModal').onclick=closeModal;$('modalback').onclick=e=>{if(e.target.id==='modalback')closeModal();};
+ const appearanceBtn=document.createElement('button');appearanceBtn.className='secondary';appearanceBtn.textContent='Appearance, status & notifications';appearanceBtn.onclick=()=>{closeModal();themeModal();};$('signoutBtn').before(appearanceBtn);
  $('copyInvite').onclick=async()=>{try{await navigator.clipboard.writeText(state.profile.invite_code);notify('Invite code copied!');}catch(e){$('myInviteCode').select();notify('Select and copy your invite code.');}};
  $('signoutBtn').onclick=async()=>{closeModal();await supabase.auth.signOut();};
  $('usernameForm').onsubmit=async e=>{e.preventDefault();const username=$('newUsername').value.trim().toLowerCase();if(!/^[a-z0-9_]{3,20}$/.test(username)){notify('Username must be 3–20 letters, numbers, or underscores.');return;}const btn=$('usernameForm').querySelector('button');btn.disabled=true;try{const {error}=await supabase.from('profiles').update({username}).eq('id',state.user.id);if(error)throw error;state.profile.username=username;$('myName').textContent=username;$('myAvatar').textContent=initials(username);await loadChats();closeModal();notify('Username updated.');}catch(err){notify(err.message||'Could not update username.');btn.disabled=false;}};
