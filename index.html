@@ -366,11 +366,17 @@ async function createGroupModal(){
   }catch(e){notify(e.message||'Could not create group.');btn.disabled=false;btn.textContent='Create group';}
  };
 }
+async function addGroupMembersModal(){
+ const chat=current();if(!chat?.isGroup){createGroupModal();return;}
+ $('overlay').innerHTML='<div class="modalback" id="modalback"><div class="modal"><h2>Add members</h2><p>Enter friends’ ChatWave numbers separated by commas. The group can have up to 20 members.</p><label>ChatWave numbers<input id="addMemberNumbers" maxlength="600" placeholder="07482..., 07123..."></label><button class="primary" id="confirmAddMembers">Add members</button><button class="secondary" id="cancelModal">Cancel</button></div></div>';
+ $('cancelModal').onclick=closeModal;$('modalback').onclick=e=>{if(e.target.id==='modalback')closeModal();};
+ $('confirmAddMembers').onclick=async()=>{const btn=$('confirmAddMembers'),numbers=[...new Set($('addMemberNumbers').value.split(/[\s,;]+/).map(cleanPhone).filter(Boolean))];if(!numbers.length){notify('Enter at least one ChatWave number.');return;}btn.disabled=true;btn.textContent='Adding…';try{const ids=[];for(const phone of numbers){const {data,error}=await supabase.rpc('find_chatwave_phone',{p_phone_number:phone});if(error)throw error;const found=(data||[]).find(p=>p.user_id!==state.user.id);if(!found)throw new Error('Could not find '+phone);ids.push(found.user_id);}const {data,error}=await supabase.rpc('add_chatwave_group_members',{p_conversation_id:chat.id,p_member_ids:[...new Set(ids)]});if(error)throw error;closeModal();await loadChats();await openChat(chat.id);notify('Added '+data+' member(s).');}catch(e){notify(e.message||'Could not add members.');btn.disabled=false;btn.textContent='Add members';}};
+}
 async function showChatOptions(){
  const c=current();if(!c)return;
  $('overlay').innerHTML='<div class="modalback" id="modalback"><div class="modal"><h2>'+esc(c.name)+'</h2><p>'+(c.isGroup?'Group conversation':'Conversation options')+'</p><button class="primary" id="groupAddMembers">'+(c.isGroup?'Add members':'Create a group')+'</button><button class="secondary" id="themeSettings">Appearance & themes</button><button class="secondary" id="soundboardOpen">Call soundboard</button><button class="secondary" id="blockUser">Block '+esc(c.name)+'</button><button class="secondary" id="reportUser">Report user</button><button class="secondary" id="cancelModal">Close</button></div></div>';
  $('cancelModal').onclick=closeModal;$('modalback').onclick=e=>{if(e.target.id==='modalback')closeModal();};
- $('groupAddMembers').onclick=()=>{closeModal();createGroupModal();};
+ $('groupAddMembers').onclick=()=>{closeModal();c.isGroup?addGroupMembersModal():createGroupModal();};
  $('themeSettings').onclick=()=>{closeModal();themeModal();};
  $('soundboardOpen').onclick=()=>{closeModal();openSoundboard();};
  $('blockUser').onclick=async()=>{if(c.isGroup){notify('Block individual members from their direct chat for now.');return;}if(!confirm('Block '+c.name+'? This stores a block on your account.'))return;const {error}=await supabase.from('chatwave_blocks').insert({blocker_id:state.user.id,blocked_id:c.otherId});if(error&&error.code!=='23505'){notify(error.message);return;}state.blocked.add(c.otherId);notify('User blocked.');closeModal();};
