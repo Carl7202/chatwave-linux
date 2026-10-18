@@ -290,7 +290,7 @@ async function startSession(user){
  $('myName').textContent=profile.username;$('myAvatar').textContent=initials(profile.username);$('myHandle').textContent=profile.phone_number||'ChatWave number unavailable';
  setStatus('Connected · real-time messaging enabled');
  await loadChats();
- setPresence('online');if(state.presenceTimer)clearInterval(state.presenceTimer);state.presenceTimer=setInterval(()=>setPresence(document.hidden?'idle':(state.presence[state.user.id]?.status||'online')),60000);
+ state.userStatus=state.presence[state.user.id]?.status||'online';setPresence('online');state.userStatus='online';if(state.presenceTimer)clearInterval(state.presenceTimer);state.presenceTimer=setInterval(()=>setPresence(document.hidden?'idle':(state.userStatus||'online')),60000);
  if(state.realtime)await supabase.removeChannel(state.realtime);
  state.realtime=supabase.channel('chatwave-all-messages-'+user.id)
   .on('postgres_changes',{event:'*',schema:'public',table:'messages'},payload=>{
@@ -374,14 +374,14 @@ async function showChatOptions(){
  $('themeSettings').onclick=()=>{closeModal();themeModal();};
  $('soundboardOpen').onclick=()=>{closeModal();openSoundboard();};
  $('blockUser').onclick=async()=>{if(c.isGroup){notify('Block individual members from their direct chat for now.');return;}if(!confirm('Block '+c.name+'? This stores a block on your account.'))return;const {error}=await supabase.from('chatwave_blocks').insert({blocker_id:state.user.id,blocked_id:c.otherId});if(error&&error.code!=='23505'){notify(error.message);return;}state.blocked.add(c.otherId);notify('User blocked.');closeModal();};
- $('reportUser').onclick=async()=>{const reason=prompt('Why are you reporting this user?');if(!reason||reason.trim().length<3)return;const {error}=await supabase.from('chatwave_reports').insert({reporter_id:state.user.id,reported_user_id:c.otherId||state.user.id,conversation_id:c.id,reason:reason.trim()});if(error){notify('Could not submit report: '+error.message);return;}notify('Report submitted.');closeModal();};
+ $('reportUser').onclick=async()=>{if(c.isGroup||!c.otherId){notify('Open a direct chat with the person you want to report.');return;}const reason=prompt('Why are you reporting this user?');if(!reason||reason.trim().length<3)return;const {error}=await supabase.from('chatwave_reports').insert({reporter_id:state.user.id,reported_user_id:c.otherId||state.user.id,conversation_id:c.id,reason:reason.trim()});if(error){notify('Could not submit report: '+error.message);return;}notify('Report submitted.');closeModal();};
 }
 function themeModal(){
  $('overlay').innerHTML='<div class="modalback" id="modalback"><div class="modal"><h2>Appearance</h2><p>Choose your ChatWave colour scheme.</p><div class="theme-options"><button data-theme-choice="discord">Discord</button><button data-theme-choice="mint">Linux Mint</button><button data-theme-choice="amoled">AMOLED</button><button data-theme-choice="purple">Neon purple</button></div><label>Presence</label><select id="presenceSelect" style="width:100%;padding:10px;background:#1e1f22;color:white;border:0;border-radius:6px"><option value="online">Online</option><option value="idle">Idle</option><option value="dnd">Do Not Disturb</option><option value="invisible">Invisible</option></select><label>Custom status</label><input id="customStatus" maxlength="80" placeholder="Gaming, studying, etc."><button class="primary" id="savePresence">Save status</button><button class="secondary" id="enableNotifications">Enable desktop notifications</button><button class="secondary" id="installApp" hidden>Install ChatWave</button><button class="secondary" id="cancelModal">Close</button></div></div>';
  $('cancelModal').onclick=closeModal;$('modalback').onclick=e=>{if(e.target.id==='modalback')closeModal();};
  $('overlay').querySelectorAll('[data-theme-choice]').forEach(b=>b.onclick=()=>{applyTheme(b.dataset.themeChoice);notify('Theme changed to '+b.textContent);});
  $('presenceSelect').value=state.presence[state.user.id]?.status||'online';$('customStatus').value=state.presence[state.user.id]?.custom_status||'';
- $('savePresence').onclick=()=>{setPresence($('presenceSelect').value,$('customStatus').value.trim());closeModal();notify('Status updated.');};
+ $('savePresence').onclick=()=>{state.userStatus=$('presenceSelect').value;setPresence(state.userStatus,$('customStatus').value.trim());closeModal();notify('Status updated.');};
  $('enableNotifications').onclick=async()=>{if(!('Notification'in window)){notify('This browser does not support desktop notifications.');return;}const p=await Notification.requestPermission();notify(p==='granted'?'Desktop notifications enabled.':'Notifications were not enabled.');};
  if(window.matchMedia('(display-mode: standalone)').matches===false&&'beforeinstallprompt'in window&&window._chatWaveInstallPrompt){$('installApp').hidden=false;$('installApp').onclick=async()=>{window._chatWaveInstallPrompt.prompt();await window._chatWaveInstallPrompt.userChoice;window._chatWaveInstallPrompt=null;};}
 }
@@ -397,7 +397,7 @@ function openSoundboard(){
  $('cancelModal').onclick=closeModal;$('modalback').onclick=e=>{if(e.target.id==='modalback')closeModal();};
  $('overlay').querySelectorAll('[data-sound]').forEach(b=>b.onclick=()=>playSoundboard(b.dataset.sound));
 }
-async function renderMessage(m,reactions){
+async function renderMessage(m,reactions,reads=[]){
  let attachment='';
  if(m.attachment_path){
   const {data,error}=await supabase.storage.from('chatwave-files').createSignedUrl(m.attachment_path,3600);
@@ -411,7 +411,7 @@ async function renderMessage(m,reactions){
  const grouped={};rs.forEach(r=>{grouped[r.emoji]??=[];grouped[r.emoji].push(r);});
  const reactionHtml=Object.entries(grouped).map(([emoji,rows])=>'<button class="reaction '+(rows.some(x=>x.user_id===state.user.id)?'mine':'')+'" data-react="'+esc(m.id)+'" data-emoji="'+esc(emoji)+'">'+emoji+' '+rows.length+'</button>').join('');
  const toolsHtml=gone?'':'<div class="msgtools"><button data-react-add="'+esc(m.id)+'" title="React">☺ React</button>'+(m.sender_id===state.user.id?'<button data-edit="'+esc(m.id)+'">✎ Edit</button><button data-delete="'+esc(m.id)+'">🗑 Delete</button>':'<button data-reply="'+esc(m.id)+'">↩ Reply</button>')+'</div>';
- return '<div class="msg '+(m.sender_id===state.user.id?'mine':'theirs')+(gone?' deleted':'')+'" data-message="'+esc(m.id)+'">'+(m.reply_to?'<div class="sub">↩ Reply</div>':'')+body+attachment+(m.edited_at&&!gone?'<small> (edited)</small>':'')+'<div class="stamp">'+time(m.created_at)+(m.sender_id===state.user.id?' <span>✓</span>':'')+'</div>'+(reactionHtml?'<div class="reactions">'+reactionHtml+'</div>':'')+toolsHtml+'</div>';
+ return '<div class="msg '+(m.sender_id===state.user.id?'mine':'theirs')+(gone?' deleted':'')+'" data-message="'+esc(m.id)+'">'+(m.reply_to?'<div class="sub">↩ Reply</div>':'')+body+attachment+(m.edited_at&&!gone?'<small> (edited)</small>':'')+'<div class="stamp">'+time(m.created_at)+(m.sender_id===state.user.id?' <span>'+(reads.some(r=>r.message_id===m.id&&r.user_id!==state.user.id)?'✓✓ Seen':'✓ Sent')+'</span>':'')+'</div>'+(reactionHtml?'<div class="reactions">'+reactionHtml+'</div>':'')+toolsHtml+'</div>';
 }
 async function uploadAttachment(file){
  const c=current();if(!c||!file)return;if(file.size>25*1024*1024){notify('Files must be 25 MB or smaller.');return;}
@@ -488,9 +488,17 @@ async function loadMessages(id){
  const voicemailHtml={},messageHtml={};
  for(const v of timeline.filter(x=>x._kind==='voicemail'))voicemailHtml[v.id]=await voicemailMarkup(v);
  const messageIds=timeline.filter(x=>x._kind==='message').map(m=>m.id);
- let reactions=[];
- if(messageIds.length){const {data:rData,error:rError}=await supabase.from('chatwave_message_reactions').select('id,message_id,user_id,emoji').in('message_id',messageIds);if(!rError)reactions=rData||[];}
- for(const m of timeline.filter(x=>x._kind==='message'))messageHtml[m.id]=await renderMessage(m,reactions);
+ const received=(data||[]).filter(m=>m.sender_id!==state.user.id);
+ if(received.length){const {error:readError}=await supabase.from('chatwave_message_reads').upsert(received.map(m=>({message_id:m.id,conversation_id:id,user_id:state.user.id})),{onConflict:'message_id,user_id',ignoreDuplicates:true});if(readError)console.warn('Read receipts unavailable',readError);}
+ let reactions=[],reads=[];
+ if(messageIds.length){
+  const [rRes,readRes]=await Promise.all([
+   supabase.from('chatwave_message_reactions').select('id,message_id,user_id,emoji').in('message_id',messageIds),
+   supabase.from('chatwave_message_reads').select('message_id,user_id,read_at').in('message_id',messageIds)
+  ]);
+  if(!rRes.error)reactions=rRes.data||[];if(!readRes.error)reads=readRes.data||[];
+ }
+ for(const m of timeline.filter(x=>x._kind==='message'))messageHtml[m.id]=await renderMessage(m,reactions,reads);
  box.innerHTML=timeline.map(m=>{
   const d=day(m.created_at);let label='';
   if(d!==lastDay){label='<div class="daylabel">'+esc(d)+'</div>';lastDay=d;}
@@ -716,7 +724,7 @@ $('composer').onsubmit=async e=>{e.preventDefault();const v=$('message').value;i
 $('message').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('composer').requestSubmit();}});
 $('message').addEventListener('input',function(){this.style.height='24px';this.style.height=Math.min(this.scrollHeight,120)+'px';});
 $('emoji').onclick=()=>{const t=$('message'),a=t.selectionStart,b=t.selectionEnd,v=t.value;t.value=v.slice(0,a)+'🙂'+v.slice(b);t.focus();t.selectionStart=t.selectionEnd=a+2;};
-if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('ChatWave offline app setup failed',e)));}window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();window._chatWaveInstallPrompt=e;});window.addEventListener('pagehide',()=>{if(state.user)setPresence('invisible');});document.addEventListener('visibilitychange',()=>{if(state.user)setPresence(document.hidden?'idle':(state.presence[state.user.id]?.status||'online'));});
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('ChatWave offline app setup failed',e)));}window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();window._chatWaveInstallPrompt=e;});window.addEventListener('pagehide',()=>{if(state.user)setPresence('invisible');});document.addEventListener('visibilitychange',()=>{if(state.user)setPresence(document.hidden?'idle':(state.userStatus||'online'));});
 supabase.auth.onAuthStateChange((event,session)=>{
  if(session?.user&&(!state.user||state.user.id!==session.user.id)){setTimeout(()=>startSession(session.user).catch(e=>{notify(e.message);setStatus('Connection error');}),0);}
  else if(!session?.user&&state.user){state.user=null;state.profile=null;state.chats=[];state.active=null;if(state.realtime)supabase.removeChannel(state.realtime);state.realtime=null;$('myName').textContent='Signed out';$('myAvatar').textContent='CW';$('myHandle').textContent='No account';$('chatlist').innerHTML='';$('conversation').hidden=true;$('welcome').hidden=false;setStatus('Signed out');setTimeout(()=>onboardingModal(),0);}
