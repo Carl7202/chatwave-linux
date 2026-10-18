@@ -11,7 +11,15 @@ A WhatsApp-inspired messaging app. The frontend is a single `index.html` hosted 
 - Add friends by their fictional ChatWave number
 - New accounts automatically open a direct conversation with the person whose invite code they used
 - Persistent message history and live incoming messages
-- Responsive desktop/mobile layout
+- Responsive desktop/mobile layout plus an installable Progressive Web App (PWA) shell
+- Group chats with named groups and adding members (up to 20)
+- Presence status (online, idle, Do Not Disturb, invisible) and custom status
+- Live typing indicators, read receipts, message edit/delete, and emoji reactions
+- Private file/image/GIF/audio/video/document sharing with signed URLs and a 25 MB limit
+- Voice calls with incoming ringtone, voicemail recording/playback, amplified audio, and one-to-one screen sharing
+- Local soundboard effects that can also be routed into a connected voice call
+- Discord, Linux Mint, AMOLED, and neon-purple themes
+- Desktop notifications (after permission is granted), profile controls, user blocking and reporting
 - Database row-level security: only conversation members can read messages or send as themselves
 - Uses a Supabase **publishable** key in the browser; the service-role key is used only inside the Edge Function
 
@@ -26,7 +34,9 @@ https://carl7202.github.io/chatwave-linux/
 - Region: Europe (London)
 - Tables: `profiles`, `conversations`, `conversation_members`, `messages`; invite codes are stored separately in the non-API `private` schema
 - Edge Function: `chatwave-auth` handles invite-gated registration and number/password login
-- Realtime publication includes `public.messages`
+- Realtime publication includes messages, reactions, presence, and read receipts
+- Private `chatwave-files` storage bucket for attachments
+- Group creation/member management and privacy controls use database RPCs with authenticated access
 
 The database schema and RLS policies are configured in the ChatWave Supabase project.
 
@@ -45,7 +55,7 @@ The database schema and RLS policies are configured in the ChatWave Supabase pro
 - RLS is enabled on public tables and on the private invite-code table.
 - Registration and login use the `chatwave-auth` Edge Function. Its service-role key must remain in Supabase's server-side environment and must never be added to `index.html`.
 - Invite codes are validated server-side again during registration.
-- This is a straightforward chat app, not end-to-end encrypted messaging. Do not use it for highly sensitive information.
+- This is not end-to-end encrypted: Supabase stores message text and attachment metadata in a form the service can process. Blocking restricts new direct messages, and reporting stores a report, but there is not yet a full moderation dashboard. Voice calls are currently one-to-one; group voice calls are not implemented. The installable PWA is not a native Linux desktop package. Do not use ChatWave for highly sensitive information.
 
 ## Publish / update
 
