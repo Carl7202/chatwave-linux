@@ -87,11 +87,11 @@ function authModal(mode='signin'){
 function requireAuth(){authModal('signin');}
 async function startSession(user){
  state.user=user;
- const {data:profile,error}=await supabase.from('profiles').select('id,username').eq('id',user.id).maybeSingle();
+ const {data:profile,error}=await supabase.from('profiles').select('id,username,invite_code').eq('id',user.id).maybeSingle();
  if(error)throw error;
  if(!profile){setStatus('Profile is being created…');notify('If you just signed up, confirm your email first, then sign in.');return;}
  state.profile=profile;
- $('myName').textContent=profile.username;$('myAvatar').textContent=initials(profile.username);$('myHandle').textContent='@'+profile.username;
+ $('myName').textContent=profile.username;$('myAvatar').textContent=initials(profile.username);$('myHandle').textContent=profile.invite_code||'Invite code unavailable';
  setStatus('Connected · real-time messaging enabled');
  await loadChats();
  if(state.realtime)await supabase.removeChannel(state.realtime);
@@ -133,7 +133,7 @@ function current(){return state.chats.find(c=>c.id===state.active);}
 function renderList(){
  const q=$('search').value.toLowerCase();
  const list=state.chats.filter(c=>c.name.toLowerCase().includes(q)||(c.last?.body||'').toLowerCase().includes(q));
- $('chatlist').innerHTML=list.length?list.map(c=>'<button class="chatrow '+(state.active===c.id?'active':'')+'" data-id="'+esc(c.id)+'"><div class="avatar">'+esc(initials(c.name))+'</div><div class="details"><div class="line1"><span class="name">'+esc(c.name)+'</span><span class="time">'+(c.last?time(c.last.created_at):'')+'</span></div><div class="line2"><div class="preview">'+(c.last?esc((c.last.sender_id===state.user.id?'You: ':'')+c.last.body):'No messages yet — say hello!')+'</div></div></div></button>').join(''):'<div class="emptylist">'+(q?'No matching chats.':'No chats yet.<br><br>Tap ＋ to find a friend by username.')+'</div>';
+ $('chatlist').innerHTML=list.length?list.map(c=>'<button class="chatrow '+(state.active===c.id?'active':'')+'" data-id="'+esc(c.id)+'"><div class="avatar">'+esc(initials(c.name))+'</div><div class="details"><div class="line1"><span class="name">'+esc(c.name)+'</span><span class="time">'+(c.last?time(c.last.created_at):'')+'</span></div><div class="line2"><div class="preview">'+(c.last?esc((c.last.sender_id===state.user.id?'You: ':'')+c.last.body):'No messages yet — say hello!')+'</div></div></div></button>').join(''):'<div class="emptylist">'+(q?'No matching chats.':'No chats yet.<br><br>Tap ＋ to add a friend by invite code.')+'</div>';
  $('chatlist').querySelectorAll('.chatrow').forEach(b=>b.onclick=()=>openChat(b.dataset.id));
 }
 async function openChat(id){
@@ -163,11 +163,15 @@ async function sendMessage(body){
  await Promise.all([loadMessages(c.id),loadChats()]);$('message').focus();
 }
 async function searchUsers(query){
- const list=$('userResults');const q=query.toLowerCase().replace(/[^a-z0-9_]/g,'').slice(0,20);
- if(q.length<2){list.innerHTML='<p>Type at least 2 letters of a username.</p>';return;}
- const {data,error}=await supabase.from('profiles').select('id,username').ilike('username',q+'%').neq('id',state.user.id).limit(12);
+ const list=$('userResults');
+ const code=query.trim().toUpperCase().replace(/\s+/g,'');
+ if(!/^CW-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/.test(code)){
+  list.innerHTML='<p>Enter the full invite code, like CW-7K9P-2MXQ.</p>';return;
+ }
+ list.innerHTML='<p>Looking up invite code…</p>';
+ const {data,error}=await supabase.rpc('find_chatwave_invite',{p_invite_code:code});
  if(error){list.textContent=error.message;return;}
- list.innerHTML=data.length?data.map(p=>'<button class="resultrow" data-user="'+esc(p.id)+'"><div class="avatar">'+esc(initials(p.username))+'</div><div><div class="name">'+esc(p.username)+'</div><div class="sub">@'+esc(p.username)+'</div></div></button>').join(''):'<p>No users found. Ask your friend to sign up and share their username.</p>';
+ list.innerHTML=data.length?data.map(p=>'<button class="resultrow" data-user="'+esc(p.user_id)+'"><div class="avatar">'+esc(initials(p.username))+'</div><div><div class="name">'+esc(p.username)+'</div><div class="sub">ChatWave ID · '+esc(code)+'</div></div></button>').join(''):'<p>No account found for that invite code. Check the code and try again.</p>';
  list.querySelectorAll('[data-user]').forEach(b=>b.onclick=async()=>{
   const btn=b;btn.disabled=true;
   try{const {data,error}=await supabase.rpc('create_direct_conversation',{target_user_id:btn.dataset.user});if(error)throw error;closeModal();await loadChats();await openChat(data);}
@@ -176,22 +180,17 @@ async function searchUsers(query){
 }
 function newChatModal(){
  if(!state.user){requireAuth();return;}
- $('overlay').innerHTML='<div class="modalback" id="modalback"><div class="modal"><h2>Find a friend</h2><p>Search by their ChatWave username. No phone number required.</p><label>Username<input id="userSearch" placeholder="Start typing a username" maxlength="20" autocomplete="off"></label><div id="userResults" style="margin-top:12px;color:var(--muted);font-size:13px">Type at least 2 letters of a username.</div><button class="secondary" id="cancelModal">Close</button></div></div>';
+ $('overlay').innerHTML='<div class="modalback" id="modalback"><div class="modal"><h2>Add a friend</h2><p>Enter their unique ChatWave invite code — it works like a phone number, but only on ChatWave.</p><label>Invite code<input id="userSearch" placeholder="CW-7K9P-2MXQ" maxlength="12" autocomplete="off" autocapitalize="characters"></label><div id="userResults" style="margin-top:12px;color:var(--muted);font-size:13px">Ask your friend to share their ChatWave code.</div><button class="secondary" id="cancelModal">Close</button></div></div>';
  $('cancelModal').onclick=closeModal;$('modalback').onclick=e=>{if(e.target.id==='modalback')closeModal();};
- let timer; $('userSearch').oninput=()=>{clearTimeout(timer);timer=setTimeout(()=>searchUsers($('userSearch').value),180);};$('userSearch').focus();
+ let timer;$('userSearch').oninput=()=>{clearTimeout(timer);timer=setTimeout(()=>searchUsers($('userSearch').value),250);};$('userSearch').focus();
 }
 function profileModal(){
  if(!state.profile){requireAuth();return;}
- modal('Your profile','Your username is how friends find you. Use 3–20 lowercase letters, numbers, or underscores.',[
- {name:'username',label:'Username',placeholder:state.profile.username,max:20,autocomplete:'username'}
- ],'Save username',async d=>{
-  const username=d.username.toLowerCase();
-  if(!/^[a-z0-9_]{3,20}$/.test(username)){notify('Username must be 3–20 letters, numbers, or underscores.');return;}
-  const {error}=await supabase.from('profiles').update({username}).eq('id',state.user.id);
-  if(error)throw error;
-  state.profile.username=username;$('myName').textContent=username;$('myAvatar').textContent=initials(username);$('myHandle').textContent='@'+username;
-  await loadChats();closeModal();notify('Username updated.');
- },{link:'Sign out',onLink:async()=>{closeModal();await supabase.auth.signOut();}});
+ $('overlay').innerHTML='<div class="modalback" id="modalback"><div class="modal"><h2>Your ChatWave ID</h2><p>This unique invite code works like your ChatWave phone number. Share it with friends so they can add you.</p><div style="display:flex;align-items:center;gap:8px;margin:18px 0"><input id="myInviteCode" readonly value="'+esc(state.profile.invite_code||'Not assigned')+'" style="font-size:20px;font-weight:800;letter-spacing:1px;text-align:center"><button class="primary" id="copyInvite" style="margin:0;width:auto;white-space:nowrap">Copy</button></div><form id="usernameForm"><label>Display username<input name="username" id="newUsername" maxlength="20" value="'+esc(state.profile.username)+'" required></label><button class="primary" type="submit">Save username</button></form><button class="secondary" id="signoutBtn">Sign out</button><button class="secondary" id="cancelModal">Close</button></div></div>';
+ $('cancelModal').onclick=closeModal;$('modalback').onclick=e=>{if(e.target.id==='modalback')closeModal();};
+ $('copyInvite').onclick=async()=>{try{await navigator.clipboard.writeText(state.profile.invite_code);notify('Invite code copied!');}catch(e){$('myInviteCode').select();notify('Select and copy your invite code.');}};
+ $('signoutBtn').onclick=async()=>{closeModal();await supabase.auth.signOut();};
+ $('usernameForm').onsubmit=async e=>{e.preventDefault();const username=$('newUsername').value.trim().toLowerCase();if(!/^[a-z0-9_]{3,20}$/.test(username)){notify('Username must be 3–20 letters, numbers, or underscores.');return;}const btn=$('usernameForm').querySelector('button');btn.disabled=true;try{const {error}=await supabase.from('profiles').update({username}).eq('id',state.user.id);if(error)throw error;state.profile.username=username;$('myName').textContent=username;$('myAvatar').textContent=initials(username);await loadChats();closeModal();notify('Username updated.');}catch(err){notify(err.message||'Could not update username.');btn.disabled=false;}};
 }
 $('newChat').onclick=$('startChat').onclick=newChatModal;
 $('profileBtn').onclick=profileModal;
