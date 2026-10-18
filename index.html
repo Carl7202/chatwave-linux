@@ -87,11 +87,13 @@ function authModal(mode='signin'){
 function requireAuth(){authModal('signin');}
 async function startSession(user){
  state.user=user;
- const {data:profile,error}=await supabase.from('profiles').select('id,username,invite_code').eq('id',user.id).maybeSingle();
+ const {data:profile,error}=await supabase.from('profiles').select('id,username').eq('id',user.id).maybeSingle();
  if(error)throw error;
  if(!profile){setStatus('Profile is being created…');notify('If you just signed up, confirm your email first, then sign in.');return;}
- state.profile=profile;
- $('myName').textContent=profile.username;$('myAvatar').textContent=initials(profile.username);$('myHandle').textContent=profile.invite_code||'Invite code unavailable';
+ const {data:inviteCode,error:inviteError}=await supabase.rpc('get_my_chatwave_invite');
+ if(inviteError)throw inviteError;
+ state.profile={...profile,invite_code:inviteCode};
+ $('myName').textContent=profile.username;$('myAvatar').textContent=initials(profile.username);$('myHandle').textContent=inviteCode||'Invite code unavailable';
  setStatus('Connected · real-time messaging enabled');
  await loadChats();
  if(state.realtime)await supabase.removeChannel(state.realtime);
