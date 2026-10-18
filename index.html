@@ -35,6 +35,9 @@ body{overflow:hidden}button,input,textarea{font:inherit}button{cursor:pointer;co
 @media(max-width:900px){.app{grid-template-columns:290px minmax(0,1fr)}.messages{padding:20px 16px}.msg{max-width:82%}}
 @media(max-width:650px){body{background:#313338}.app{height:100dvh;grid-template-columns:1fr;padding:0;gap:0}.sidebar{border:0}.main{display:none}.app.showchat .sidebar{display:none}.app.showchat .main{display:flex}.top{height:48px;padding:0 16px}.brand{font-size:18px}.profile{padding:11px 14px}.search{padding:10px 12px}.chatrow{padding:11px 9px}.chatrow .avatar{width:42px;height:42px}.chathead{height:48px;padding:0 10px;gap:8px}.mobileback{display:grid;font-size:29px;width:30px;height:38px}.chathead .avatar{width:30px;height:30px}.messages{padding:16px 10px;gap:8px}.msg{max-width:88%;font-size:15px}.composer{padding:8px 10px calc(10px + env(safe-area-inset-bottom));gap:7px}.composebox{padding:8px 10px}.send{width:40px;height:40px}.modalback{align-items:end;padding:10px}.modal{width:100%;border-radius:12px;padding:22px 18px calc(18px + env(safe-area-inset-bottom))}.welcome h1{font-size:29px}.callcard{border-radius:12px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+
+/* ChatWave feature pack */
+.feature-actions{display:flex;gap:3px;align-items:center}.msgtools{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px;opacity:.82}.msgtools button,.reaction{border:1px solid #4a4d55;background:#2b2d31;border-radius:6px;padding:3px 7px;font-size:12px}.msgtools button:hover,.reaction:hover{background:#404eed}.reactions{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}.reaction.mine{border-color:#7984ff;background:#353b79}.attach-preview{display:block;max-width:min(360px,70vw);max-height:300px;border-radius:8px;margin:6px 0}.presence-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#23a559;margin-right:5px}.presence-dot.idle{background:#f0b232}.presence-dot.dnd{background:#ed4245}.presence-dot.invisible{background:#747f8d}.typingline{min-height:16px;color:#b5bac1;font-size:11px;padding:0 24px 4px}.theme-options{display:flex;gap:7px;flex-wrap:wrap}.theme-options button{border:1px solid #555;padding:8px 10px;border-radius:8px}.callcard video{width:100%;max-height:260px;background:#17181b;border-radius:8px;margin:10px 0;object-fit:contain}.soundboard{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}.soundboard button{background:#4e5058;border-radius:7px;padding:8px}.msg.deleted{opacity:.7;font-style:italic}
 </style>
 </head>
 <body>
@@ -50,20 +53,20 @@ body{overflow:hidden}button,input,textarea{font:inherit}button{cursor:pointer;co
 <main class="main" id="main">
  <div class="welcome" id="welcome"><div class="biglogo"><svg viewBox="0 0 24 24" width="58" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.5 11.5a8.4 8.4 0 0 1-12.4 7.4L3 20l1.2-4.7A8.5 8.5 0 1 1 20.5 11.5Z"/><path d="M8 8.5c.7 2.5 2.3 4.1 4.8 5"/></svg></div><h1>ChatWave</h1><p>Messages that flow. Find your friends and start talking.</p><button class="primary" style="max-width:210px" id="startChat">＋ Start a chat</button><div class="hint">🔒 Your messages are stored online and access is restricted to conversation members.<br>Use a fictional ChatWave number — no real phone or email required.</div></div>
  <section class="conversation" id="conversation" hidden>
-  <header class="chathead"><button class="iconbtn mobileback" id="back" aria-label="Back">‹</button><div class="avatar" id="chatAvatar">?</div><div class="who"><div class="name" id="chatName">Chat</div><div class="sub" id="chatSub">ChatWave conversation</div></div><button class="callbtn" id="leaveVoicemail" title="Leave a voicemail" aria-label="Record a voicemail">🎙</button><button class="callbtn" id="voiceCall" title="Voice call" aria-label="Start voice call">☎</button></header>
-  <div class="messages" id="messages"></div>
-  <form class="composer" id="composer"><button type="button" class="iconbtn" id="emoji" title="Add emoji">☺</button><div class="composebox"><textarea id="message" rows="1" placeholder="Type a message" aria-label="Message" maxlength="4000"></textarea></div><button class="send" aria-label="Send message" title="Send">➤</button></form>
+  <header class="chathead"><button class="iconbtn mobileback" id="back" aria-label="Back">‹</button><div class="avatar" id="chatAvatar">?</div><div class="who"><div class="name" id="chatName">Chat</div><div class="sub" id="chatSub">ChatWave conversation</div></div><div class="feature-actions"><button class="callbtn" id="chatOptions" title="Chat options">⋯</button><button class="callbtn" id="leaveVoicemail" title="Leave a voicemail" aria-label="Record a voicemail">🎙</button><button class="callbtn" id="voiceCall" title="Voice call" aria-label="Start voice call">☎</button></div></header>
+  <div class="messages" id="messages"></div><div class="typingline" id="typingLine"></div>
+  <form class="composer" id="composer"><button type="button" class="iconbtn" id="attachFile" title="Attach a file">＋</button><input type="file" id="fileInput" hidden accept="image/*,audio/*,video/mp4,video/webm,application/pdf,text/plain,application/zip"><button type="button" class="iconbtn" id="emoji" title="Add emoji">☺</button><div class="composebox"><textarea id="message" rows="1" placeholder="Type a message" aria-label="Message" maxlength="4000"></textarea></div><button class="send" aria-label="Send message" title="Send">➤</button></form>
  </section>
 </main>
 </div>
-<div id="overlay"></div><div id="callOverlay"></div><audio id="incomingRingtone" src="ringtone.mp3" preload="auto" loop></audio><audio id="remoteAudio" autoplay playsinline></audio><div id="toast" class="notice" hidden></div>
+<div id="overlay"></div><div id="callOverlay"></div><audio id="incomingRingtone" src="ringtone.mp3" preload="auto" loop></audio><audio id="remoteAudio" autoplay playsinline></audio><video id="remoteScreen" autoplay playsinline hidden></video><div id="toast" class="notice" hidden></div>
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = 'https://dhylbrxixjrtqufqrnjh.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_g8isti4XwuZ_jukxgAzV9A_3ULHt_LN';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
-const state = { user:null, profile:null, chats:[], active:null, channel:null, realtime:null, filter:'all', loading:false, callChannels:{}, call:null };
+const state = { user:null, profile:null, chats:[], active:null, channel:null, realtime:null, filter:'all', loading:false, callChannels:{}, call:null, typingChannel:null, typingTimer:null, presenceTimer:null, presence:{}, blocked:new Set(), theme:'discord' };
 /* Incoming-call MP3 ringtone, two-repeat timeout, and browser-tab alert */
 const ringtone = $('incomingRingtone');
 let ringtoneRepeats=0,ringtoneEndedHandler=null;
