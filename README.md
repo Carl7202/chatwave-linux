@@ -5,7 +5,8 @@ A WhatsApp-inspired, phone-free messaging app. The frontend is a single `index.h
 ## Features
 
 - Email + password accounts (no phone number)
-- Unique username that friends can search for
+- Unique ChatWave invite code (for example, `CW-7K9P-2MXQ`) that works like a phone-number-style contact ID
+- Add friends by invite code, not by searching usernames
 - Direct conversations created in the shared database
 - Persistent message history and live incoming messages
 - Responsive desktop/mobile layout
@@ -21,7 +22,7 @@ https://carl7202.github.io/chatwave-linux/
 - Supabase project: `ChatWave`
 - Project ref: `dhylbrxixjrtqufqrnjh`
 - Region: Europe (London)
-- Tables: `profiles`, `conversations`, `conversation_members`, `messages`
+- Tables: `profiles`, `conversations`, `conversation_members`, `messages`; invite codes are stored separately in the non-API `private` schema
 - Realtime publication includes `public.messages`
 
 The database schema and RLS policies have been applied to the separate ChatWave project.
@@ -42,7 +43,7 @@ GitHub Actions deploys the repository root to GitHub Pages whenever a commit is 
 1. Open the live site and create an account with an email, password, and username (3–20 lowercase letters, numbers, or underscores).
 2. Confirm the email if Supabase asks you to.
 3. Sign in.
-4. Use **＋** to search for a friend's username and start a direct chat.
+4. Open **⚙ Your ChatWave ID** to copy your invite code. Use **＋** to enter a friend's full invite code and start a direct chat.
 5. Your friend creates their own account and signs in on their own device. Messages should appear live while both users are connected.
 
 ## Security notes
