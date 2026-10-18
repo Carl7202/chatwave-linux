@@ -184,7 +184,7 @@ function cancelVoicemailRecording(){
 async function voicemailMarkup(v){
  const {data,error}=await supabase.storage.from('chatwave-voicemails').createSignedUrl(v.storage_path,3600);
  const who=v.caller_id===state.user.id?'You left a voicemail':'Voicemail';
- return '<div class="msg '+(v.caller_id===state.user.id?'mine':'theirs')+'"><strong>🎙 '+who+'</strong><div style="margin:7px 0">'+(error?'Audio unavailable':'<audio controls preload="none" style="max-width:100%;width:260px" src="'+esc(data.signedUrl)+'"></audio>')+'</div><div class="stamp">'+time(v.created_at)+' · '+Math.max(1,v.duration_seconds)+'s</div></div>';
+ return '<div class="msg '+(v.caller_id===state.user.id?'mine':'theirs')+'"><strong>🎙 '+who+'</strong><div style="margin:7px 0">'+(error?'Audio unavailable':'<audio class="voicemail-audio" controls preload="none" crossorigin="anonymous" style="max-width:100%;width:260px" src="'+esc(data.signedUrl)+'"></audio>')+'</div><div class="stamp">'+time(v.created_at)+' · '+Math.max(1,v.duration_seconds)+'s · 150% volume</div></div>';
 }
 
 let toastTimer = null;
