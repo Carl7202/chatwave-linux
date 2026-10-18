@@ -157,7 +157,7 @@ async function sendVoicemailRecording(){
   const c=voicemailContext;
   const ext=voicemailBlob.type.includes('mp4')?'m4a':voicemailBlob.type.includes('ogg')?'ogg':'webm';
   const path=state.user.id+'/'+c.conversationId+'/'+crypto.randomUUID()+'.'+ext;
-  const {error:uploadError}=await supabase.storage.from('chatwave-voicemails').upload(path,voicemailBlob,{contentType:voicemailBlob.type||'audio/webm',upsert:false});
+  const {error:uploadError}=await supabase.storage.from('chatwave-voicemails').upload(path,voicemailBlob,{contentType:voicemailBlob.type.includes('ogg')?'audio/ogg':voicemailBlob.type.includes('mp4')?'audio/mp4':voicemailBlob.type.includes('mpeg')?'audio/mpeg':'audio/webm',upsert:false});
   if(uploadError)throw uploadError;
   const duration=voicemailDurationSeconds||1;
   const {error}=await supabase.from('chatwave_voicemails').insert({conversation_id:c.conversationId,caller_id:state.user.id,recipient_id:c.recipientId,storage_path:path,duration_seconds:duration});
