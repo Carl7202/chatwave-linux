@@ -339,6 +339,17 @@ async function loadMessages(id){
   if(m._kind==='voicemail')return label+voicemailHtml[m.id];
   return label+'<div class="msg '+(m.sender_id===state.user.id?'mine':'theirs')+'">'+esc(m.body)+'<div class="stamp">'+time(m.created_at)+(m.sender_id===state.user.id?' <span>✓</span>':'')+'</div></div>';
  }).join('')||'<div class="emptychat"><h2>Say hello 👋</h2><p>Your messages with '+esc(current()?.name||'your friend')+' will show up here.</p></div>';
+ box.querySelectorAll('audio.voicemail-audio').forEach(audio=>{
+  audio.addEventListener('play',()=>{
+   if(audio.dataset.amplified==='1')return;
+   try{
+    const Ctx=window.AudioContext||window.webkitAudioContext;if(!Ctx)return;
+    const ctx=new Ctx(),source=ctx.createMediaElementSource(audio),gain=ctx.createGain();
+    gain.gain.value=1.5;source.connect(gain);gain.connect(ctx.destination);audio.dataset.amplified='1';
+    if(ctx.state==='suspended')ctx.resume();
+   }catch(e){console.warn('Voicemail amplification unavailable:',e);}
+  });
+ });
  box.scrollTop=box.scrollHeight;
 }
 async function sendMessage(body){
