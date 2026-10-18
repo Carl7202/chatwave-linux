@@ -307,6 +307,129 @@ async function startSession(user){
    }
   }).subscribe(status=>{if(status==='SUBSCRIBED')setStatus('Connected · live');});
 }
+function applyTheme(theme){
+ state.theme=theme||'discord';document.documentElement.dataset.theme=state.theme;
+ const palettes={discord:['#313338','#2b2d31','#383a40','#5865f2'],mint:['#263238','#1f292d','#34434a','#7fb069'],amoled:['#08090b','#111216','#1b1d23','#8b5cf6'],purple:['#241d32','#1b1626','#342944','#a855f7']};
+ const p=palettes[state.theme]||palettes.discord;const root=document.documentElement;
+ root.style.setProperty('--bg',p[0]);root.style.setProperty('--panel',p[1]);root.style.setProperty('--panel2',p[2]);root.style.setProperty('--accent',p[3]);root.style.setProperty('--bubble',p[3]);
+ document.body.style.background=p[0];document.querySelectorAll('.sidebar,.top').forEach(x=>x.style.background=p[1]);document.querySelectorAll('.main,.chathead,.messages,.composer,.daylabel').forEach(x=>x.style.background=p[0]);document.querySelectorAll('.composebox,.msg.theirs').forEach(x=>x.style.background=p[2]);document.querySelectorAll('.msg.mine,.send,.logo,.welcome .biglogo,.filter.active').forEach(x=>x.style.background=p[3]);
+ try{localStorage.setItem('chatwave-theme',state.theme);}catch(e){}
+}
+function setPresence(status,custom=''){
+ if(!state.user)return;
+ const row={user_id:state.user.id,status,custom_status:custom,last_seen:new Date().toISOString(),updated_at:new Date().toISOString()};
+ supabase.from('chatwave_presence').upsert(row,{onConflict:'user_id'}).then(({error})=>{if(error)console.warn('Presence update failed',error);});
+}
+function presenceText(userId){
+ const p=state.presence[userId];if(!p)return 'ChatWave user';
+ return (p.status==='online'?'🟢 Online':p.status==='idle'?'🌙 Idle':p.status==='dnd'?'⛔ Do Not Disturb':'⚪ Offline')+(p.custom_status?' · '+p.custom_status:'');
+}
+async function loadPresence(){
+ const ids=[...new Set(state.chats.map(x=>x.otherId).filter(Boolean))];if(!ids.length)return;
+ const {data,error}=await supabase.from('chatwave_presence').select('user_id,status,custom_status,last_seen').in('user_id',ids);
+ if(error){console.warn('Presence load failed',error);return;}
+ state.presence=Object.fromEntries((data||[]).map(p=>[p.user_id,p]));
+ if(state.active){const c=current();if(c)$('chatSub').textContent=c.isGroup?'Group conversation · '+c.memberCount+' members':'@'+c.name+' · '+presenceText(c.otherId);}
+ renderList();
+}
+function sendTyping(){
+ if(!state.typingChannel||!state.user)return;
+ state.typingChannel.send({type:'broadcast',event:'typing',payload:{user_id:state.user.id,username:state.profile?.username||'Someone'}}).catch(()=>{});
+ clearTimeout(state.typingTimer);state.typingTimer=setTimeout(()=>{if($('typingLine'))$('typingLine').textContent='';},1800);
+}
+async function bindTypingChannel(id){
+ if(state.typingChannel){await supabase.removeChannel(state.typingChannel);state.typingChannel=null;}
+ if(!id||!state.user)return;
+ const ch=supabase.channel('typing:'+id,{config:{broadcast:{self:false}}});
+ ch.on('broadcast',{event:'typing'},({payload})=>{if(payload?.user_id!==state.user.id&&state.active===id){$('typingLine').textContent=(payload.username||'Someone')+' is typing…';clearTimeout(state.typingTimer);state.typingTimer=setTimeout(()=>{$('typingLine').textContent='';},2000);}}).subscribe();
+ state.typingChannel=ch;
+}
+async function createGroupModal(){
+ const c=state.chats.filter(x=>!x.isGroup);
+ $('overlay').innerHTML='<div class="modalback" id="modalback"><div class="modal"><h2>Create a group</h2><p>Add friends using their ChatWave numbers, separated by commas. Groups support up to 20 people.</p><label>Group name<input id="groupName" maxlength="60" placeholder="The chaos crew"></label><label>Friends’ ChatWave numbers<input id="groupNumbers" maxlength="600" placeholder="07482..., 07123..."></label><button class="primary" id="createGroup">Create group</button><button class="secondary" id="cancelModal">Cancel</button></div></div>';
+ $('cancelModal').onclick=closeModal;$('modalback').onclick=e=>{if(e.target.id==='modalback')closeModal();};
+ $('createGroup').onclick=async()=>{
+  const btn=$('createGroup'),name=$('groupName').value.trim(),numbers=[...new Set($('groupNumbers').value.split(/[\s,;]+/).map(cleanPhone).filter(Boolean))];
+  if(name.length<2){notify('Give your group a name.');return;}if(numbers.length<2){notify('Enter at least two friends’ ChatWave numbers.');return;}
+  btn.disabled=true;btn.textContent='Creating group…';
+  try{
+   const ids=[];
+   for(const phone of numbers){const {data,error}=await supabase.rpc('find_chatwave_phone',{p_phone_number:phone});if(error)throw error;const found=(data||[]).find(p=>p.user_id!==state.user.id);if(!found)throw new Error('Could not find ChatWave number '+phone);ids.push(found.user_id);}
+   const {data,error}=await supabase.rpc('create_chatwave_group',{p_name:name,p_member_ids:[...new Set(ids)]});if(error)throw error;
+   closeModal();await loadChats();await openChat(data);notify('Group created!');
+  }catch(e){notify(e.message||'Could not create group.');btn.disabled=false;btn.textContent='Create group';}
+ };
+}
+async function showChatOptions(){
+ const c=current();if(!c)return;
+ $('overlay').innerHTML='<div class="modalback" id="modalback"><div class="modal"><h2>'+esc(c.name)+'</h2><p>'+(c.isGroup?'Group conversation':'Conversation options')+'</p><button class="primary" id="groupAddMembers">'+(c.isGroup?'Add members':'Create a group')+'</button><button class="secondary" id="themeSettings">Appearance & themes</button><button class="secondary" id="soundboardOpen">Call soundboard</button><button class="secondary" id="blockUser">Block '+esc(c.name)+'</button><button class="secondary" id="reportUser">Report user</button><button class="secondary" id="cancelModal">Close</button></div></div>';
+ $('cancelModal').onclick=closeModal;$('modalback').onclick=e=>{if(e.target.id==='modalback')closeModal();};
+ $('groupAddMembers').onclick=()=>{closeModal();createGroupModal();};
+ $('themeSettings').onclick=()=>{closeModal();themeModal();};
+ $('soundboardOpen').onclick=()=>{closeModal();openSoundboard();};
+ $('blockUser').onclick=async()=>{if(c.isGroup){notify('Block individual members from their direct chat for now.');return;}if(!confirm('Block '+c.name+'? This stores a block on your account.'))return;const {error}=await supabase.from('chatwave_blocks').insert({blocker_id:state.user.id,blocked_id:c.otherId});if(error&&error.code!=='23505'){notify(error.message);return;}state.blocked.add(c.otherId);notify('User blocked.');closeModal();};
+ $('reportUser').onclick=async()=>{const reason=prompt('Why are you reporting this user?');if(!reason||reason.trim().length<3)return;const {error}=await supabase.from('chatwave_reports').insert({reporter_id:state.user.id,reported_user_id:c.otherId||state.user.id,conversation_id:c.id,reason:reason.trim()});if(error){notify('Could not submit report: '+error.message);return;}notify('Report submitted.');closeModal();};
+}
+function themeModal(){
+ $('overlay').innerHTML='<div class="modalback" id="modalback"><div class="modal"><h2>Appearance</h2><p>Choose your ChatWave colour scheme.</p><div class="theme-options"><button data-theme-choice="discord">Discord</button><button data-theme-choice="mint">Linux Mint</button><button data-theme-choice="amoled">AMOLED</button><button data-theme-choice="purple">Neon purple</button></div><label>Presence</label><select id="presenceSelect" style="width:100%;padding:10px;background:#1e1f22;color:white;border:0;border-radius:6px"><option value="online">Online</option><option value="idle">Idle</option><option value="dnd">Do Not Disturb</option><option value="invisible">Invisible</option></select><label>Custom status</label><input id="customStatus" maxlength="80" placeholder="Gaming, studying, etc."><button class="primary" id="savePresence">Save status</button><button class="secondary" id="enableNotifications">Enable desktop notifications</button><button class="secondary" id="installApp" hidden>Install ChatWave</button><button class="secondary" id="cancelModal">Close</button></div></div>';
+ $('cancelModal').onclick=closeModal;$('modalback').onclick=e=>{if(e.target.id==='modalback')closeModal();};
+ $('overlay').querySelectorAll('[data-theme-choice]').forEach(b=>b.onclick=()=>{applyTheme(b.dataset.themeChoice);notify('Theme changed to '+b.textContent);});
+ $('presenceSelect').value=state.presence[state.user.id]?.status||'online';$('customStatus').value=state.presence[state.user.id]?.custom_status||'';
+ $('savePresence').onclick=()=>{setPresence($('presenceSelect').value,$('customStatus').value.trim());closeModal();notify('Status updated.');};
+ $('enableNotifications').onclick=async()=>{if(!('Notification'in window)){notify('This browser does not support desktop notifications.');return;}const p=await Notification.requestPermission();notify(p==='granted'?'Desktop notifications enabled.':'Notifications were not enabled.');};
+ if(window.matchMedia('(display-mode: standalone)').matches===false&&'beforeinstallprompt'in window&&window._chatWaveInstallPrompt){$('installApp').hidden=false;$('installApp').onclick=async()=>{window._chatWaveInstallPrompt.prompt();await window._chatWaveInstallPrompt.userChoice;window._chatWaveInstallPrompt=null;};}
+}
+function playSoundboard(kind){
+ const Ctx=window.AudioContext||window.webkitAudioContext;if(!Ctx){notify('Web Audio is unavailable.');return;}
+ const ctx=new Ctx(),now=ctx.currentTime;
+ const sounds={beep:[880,.12],boop:[440,.22],alert:[660,.1],fanfare:[523,.13],airhorn:[220,.65]};
+ const [freq,duration]=sounds[kind]||sounds.beep;
+ const osc=ctx.createOscillator(),gain=ctx.createGain();osc.type=kind==='airhorn'?'sawtooth':'sine';osc.frequency.value=freq;gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(kind==='airhorn'?.16:.08,now+.02);gain.gain.exponentialRampToValueAtTime(.0001,now+duration);osc.connect(gain);gain.connect(ctx.destination);osc.start(now);osc.stop(now+duration);setTimeout(()=>ctx.close(),(duration+.1)*1000);
+}
+function openSoundboard(){
+ $('callOverlay').innerHTML=callMarkup('Soundboard','ChatWave','Play a sound locally or during a call','<div class="soundboard"><button data-sound="beep">🔔 Beep</button><button data-sound="boop">🫧 Boop</button><button data-sound="alert">🚨 Alert</button><button data-sound="fanfare">🎺 Fanfare</button><button data-sound="airhorn">📢 Airhorn</button><button id="closeSoundboard" class="endcall">Close</button></div>');
+ $('callOverlay').querySelectorAll('[data-sound]').forEach(b=>b.onclick=()=>playSoundboard(b.dataset.sound));$('closeSoundboard').onclick=()=>$('callOverlay').innerHTML='';
+}
+async function renderMessage(m,reactions){
+ let attachment='';
+ if(m.attachment_path){
+  const {data,error}=await supabase.storage.from('chatwave-files').createSignedUrl(m.attachment_path,3600);
+  if(!error&&data?.signedUrl){
+   const url=esc(data.signedUrl),type=m.attachment_type||'';
+   attachment=type.startsWith('image/')?'<a href="'+url+'" target="_blank" rel="noopener"><img class="attach-preview" src="'+url+'" alt="'+esc(m.attachment_name||'Shared image')+'" loading="lazy"></a>':type.startsWith('audio/')?'<audio controls preload="none" style="max-width:100%" src="'+url+'"></audio>':type.startsWith('video/')?'<video controls class="attach-preview" src="'+url+'"></video>':'<a href="'+url+'" target="_blank" rel="noopener">📎 '+esc(m.attachment_name||'Download attachment')+'</a>';
+  }else attachment='<div>📎 Attachment unavailable</div>';
+ }
+ const gone=!!m.deleted_at,body=gone?'This message was deleted':esc(m.body||'');
+ const rs=(reactions||[]).filter(r=>r.message_id===m.id);
+ const grouped={};rs.forEach(r=>{grouped[r.emoji]??=[];grouped[r.emoji].push(r);});
+ const reactionHtml=Object.entries(grouped).map(([emoji,rows])=>'<button class="reaction '+(rows.some(x=>x.user_id===state.user.id)?'mine':'')+'" data-react="'+esc(m.id)+'" data-emoji="'+esc(emoji)+'">'+emoji+' '+rows.length+'</button>').join('');
+ const toolsHtml=gone?'':'<div class="msgtools"><button data-react-add="'+esc(m.id)+'" title="React">☺ React</button>'+(m.sender_id===state.user.id?'<button data-edit="'+esc(m.id)+'">✎ Edit</button><button data-delete="'+esc(m.id)+'">🗑 Delete</button>':'<button data-reply="'+esc(m.id)+'">↩ Reply</button>')+'</div>';
+ return '<div class="msg '+(m.sender_id===state.user.id?'mine':'theirs')+(gone?' deleted':'')+'" data-message="'+esc(m.id)+'">'+(m.reply_to?'<div class="sub">↩ Reply</div>':'')+body+attachment+(m.edited_at&&!gone?'<small> (edited)</small>':'')+'<div class="stamp">'+time(m.created_at)+(m.sender_id===state.user.id?' <span>✓</span>':'')+'</div>'+(reactionHtml?'<div class="reactions">'+reactionHtml+'</div>':'')+toolsHtml+'</div>';
+}
+async function uploadAttachment(file){
+ const c=current();if(!c||!file)return;if(file.size>25*1024*1024){notify('Files must be 25 MB or smaller.');return;}
+ const path=c.id+'/'+state.user.id+'/'+crypto.randomUUID()+'-'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+ notify('Uploading attachment…');
+ const {error:upErr}=await supabase.storage.from('chatwave-files').upload(path,file,{contentType:file.type||'application/octet-stream',upsert:false});
+ if(upErr){notify('Upload failed: '+upErr.message);return;}
+ const {error}=await supabase.from('messages').insert({conversation_id:c.id,sender_id:state.user.id,body:'',attachment_path:path,attachment_name:file.name,attachment_type:file.type||'application/octet-stream'});
+ if(error){notify('Could not send attachment: '+error.message);return;}
+ await Promise.all([loadMessages(c.id),loadChats()]);notify('Attachment sent.');
+}
+async function addReaction(messageId,emoji){
+ const existing=await supabase.from('chatwave_message_reactions').select('id').eq('message_id',messageId).eq('user_id',state.user.id).eq('emoji',emoji).maybeSingle();
+ if(existing.error){notify(existing.error.message);return;}
+ const result=existing.data?await supabase.from('chatwave_message_reactions').delete().eq('id',existing.data.id):await supabase.from('chatwave_message_reactions').insert({message_id:messageId,conversation_id:state.active,user_id:state.user.id,emoji});
+ if(result.error)notify('Reaction failed: '+result.error.message);else await loadMessages(state.active);
+}
+async function messageActions(){
+ const box=$('messages');
+ box.querySelectorAll('[data-react]').forEach(b=>b.onclick=()=>addReaction(b.dataset.react,b.dataset.emoji));
+ box.querySelectorAll('[data-react-add]').forEach(b=>b.onclick=()=>{const emoji=prompt('Choose an emoji to react with','😂');if(emoji)addReaction(b.dataset.react,emoji.trim());});
+ box.querySelectorAll('[data-edit]').forEach(b=>b.onclick=async()=>{const mId=b.dataset.edit,el=box.querySelector('[data-message="'+mId+'"]'),old=el?.childNodes[0]?.textContent||'';const body=prompt('Edit your message',old);if(body===null||!body.trim())return;const {error}=await supabase.from('messages').update({body:body.trim(),edited_at:new Date().toISOString()}).eq('id',mId).eq('sender_id',state.user.id);if(error)notify('Edit failed: '+error.message);else await loadMessages(state.active);});
+ box.querySelectorAll('[data-delete]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete this message?'))return;const {error}=await supabase.from('messages').update({body:'',deleted_at:new Date().toISOString()}).eq('id',b.dataset.delete).eq('sender_id',state.user.id);if(error)notify('Delete failed: '+error.message);else await loadMessages(state.active);});
+ box.querySelectorAll('[data-reply]').forEach(b=>b.onclick=()=>{const el=box.querySelector('[data-message="'+b.dataset.reply+'"]');$('message').value='↩ '+(el?.innerText||'').slice(0,100)+'\n';$('message').focus();});
+}
 async function loadChats(){
  if(!state.user)return;
  const {data:myMemberships,error:mErr}=await supabase.from('conversation_members').select('conversation_id').eq('user_id',state.user.id);
