@@ -396,7 +396,14 @@ function playSoundboard(kind){
  const ctx=new Ctx(),now=ctx.currentTime;
  const sounds={beep:[880,.12],boop:[440,.22],alert:[660,.1],fanfare:[523,.13],airhorn:[220,.65]};
  const [freq,duration]=sounds[kind]||sounds.beep;
- const osc=ctx.createOscillator(),gain=ctx.createGain();osc.type=kind==='airhorn'?'sawtooth':'sine';osc.frequency.value=freq;gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(kind==='airhorn'?.16:.08,now+.02);gain.gain.exponentialRampToValueAtTime(.0001,now+duration);osc.connect(gain);gain.connect(ctx.destination);osc.start(now);osc.stop(now+duration);setTimeout(()=>ctx.close(),(duration+.1)*1000);
+ const osc=ctx.createOscillator(),gain=ctx.createGain();osc.type=kind==='airhorn'?'sawtooth':'sine';osc.frequency.value=freq;gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(kind==='airhorn'?.16:.08,now+.02);gain.gain.exponentialRampToValueAtTime(.0001,now+duration);osc.connect(gain);gain.connect(ctx.destination);
+ let sender=null,destination=null;const call=state.call;
+ if(call?.pc?.connectionState==='connected'){
+  destination=ctx.createMediaStreamDestination();gain.connect(destination);
+  try{sender=call.pc.addTrack(destination.stream.getAudioTracks()[0],destination.stream);renegotiateCall(call).catch(e=>console.warn('Soundboard call renegotiation failed',e));}catch(e){console.warn('Could not send soundboard audio',e);}
+ }
+ osc.onended=()=>{if(sender&&call?.pc){try{call.pc.removeTrack(sender);renegotiateCall(call).catch(()=>{});}catch(e){}}setTimeout(()=>ctx.close().catch(()=>{}),150);};
+ osc.start(now);osc.stop(now+duration);
 }
 function openSoundboard(){
  $('overlay').innerHTML='<div class="modalback" id="modalback"><div class="modal"><h2>♫ Call soundboard</h2><p>These effects play locally in this browser.</p><div class="soundboard"><button data-sound="beep">🔔 Beep</button><button data-sound="boop">🫧 Boop</button><button data-sound="alert">🚨 Alert</button><button data-sound="fanfare">🎺 Fanfare</button><button data-sound="airhorn">📢 Airhorn</button></div><button class="secondary" id="cancelModal">Close</button></div></div>';
