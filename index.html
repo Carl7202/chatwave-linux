@@ -122,7 +122,7 @@ function stopCallTabAlert(){
 }
 
 
-let voicemailRecorder=null,voicemailChunks=[],voicemailStream=null,voicemailStartedAt=0,voicemailBlob=null,voicemailContext=null;
+let voicemailRecorder=null,voicemailChunks=[],voicemailStream=null,voicemailStartedAt=0,voicemailDurationSeconds=0,voicemailBlob=null,voicemailContext=null;
 function showVoicemailRecorder(context){
  voicemailContext=context;voicemailBlob=null;voicemailChunks=[];
  $('callOverlay').innerHTML='<div class="callback"><div class="callcard"><div class="avatar">🎙</div><h2>Leave a voicemail</h2><p>They couldn’t answer. Record a short voice message for '+esc(context.name||'your friend')+'.</p><div class="callstatus" id="vmStatus">Ready to record · maximum 3 minutes</div><div class="callactions" id="vmActions"><button class="acceptcall" id="vmRecord">Record message</button><button class="mutecall" id="vmCancel">Cancel</button></div></div></div>';
@@ -137,6 +137,7 @@ async function startVoicemailRecording(){
   voicemailRecorder.ondataavailable=e=>{if(e.data?.size)voicemailChunks.push(e.data);};
   voicemailRecorder.onstop=()=>{
    voicemailBlob=new Blob(voicemailChunks,{type:voicemailRecorder.mimeType||'audio/webm'});
+   voicemailDurationSeconds=Math.min(180,Math.max(1,Math.round((Date.now()-voicemailStartedAt)/1000)));
    voicemailStream?.getTracks().forEach(t=>t.stop());voicemailStream=null;
    const seconds=Math.max(1,Math.round((Date.now()-voicemailStartedAt)/1000));
    $('vmStatus').textContent='Recording ready · '+seconds+' second'+(seconds===1?'':'s');
@@ -158,7 +159,7 @@ async function sendVoicemailRecording(){
   const path=state.user.id+'/'+c.conversationId+'/'+crypto.randomUUID()+'.'+ext;
   const {error:uploadError}=await supabase.storage.from('chatwave-voicemails').upload(path,voicemailBlob,{contentType:voicemailBlob.type||'audio/webm',upsert:false});
   if(uploadError)throw uploadError;
-  const duration=Math.min(180,Math.max(1,Math.round(voicemailBlob.size/16000)));
+  const duration=voicemailDurationSeconds||1;
   const {error}=await supabase.from('chatwave_voicemails').insert({conversation_id:c.conversationId,caller_id:state.user.id,recipient_id:c.recipientId,storage_path:path,duration_seconds:duration});
   if(error)throw error;
   $('callOverlay').innerHTML='';voicemailContext=null;voicemailBlob=null;
@@ -263,6 +264,13 @@ async function startSession(user){
    if(state.chats.some(c=>c.id===m.conversation_id)){
     loadChats();
     if(state.active===m.conversation_id)loadMessages(state.active);
+   }
+  })
+  .on('postgres_changes',{event:'INSERT',schema:'public',table:'chatwave_voicemails'},payload=>{
+   const v=payload.new;
+   if(state.chats.some(c=>c.id===v.conversation_id)){
+    if(state.active===v.conversation_id)loadMessages(state.active);
+    notify('New voicemail received.');
    }
   }).subscribe(status=>{if(status==='SUBSCRIBED')setStatus('Connected · live');});
 }
