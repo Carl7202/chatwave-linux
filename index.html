@@ -50,7 +50,7 @@ body{overflow:hidden}button,input,textarea{font:inherit}button{cursor:pointer;co
 <main class="main" id="main">
  <div class="welcome" id="welcome"><div class="biglogo"><svg viewBox="0 0 24 24" width="58" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.5 11.5a8.4 8.4 0 0 1-12.4 7.4L3 20l1.2-4.7A8.5 8.5 0 1 1 20.5 11.5Z"/><path d="M8 8.5c.7 2.5 2.3 4.1 4.8 5"/></svg></div><h1>ChatWave</h1><p>Messages that flow. Find your friends and start talking.</p><button class="primary" style="max-width:210px" id="startChat">＋ Start a chat</button><div class="hint">🔒 Your messages are stored online and access is restricted to conversation members.<br>Use a fictional ChatWave number — no real phone or email required.</div></div>
  <section class="conversation" id="conversation" hidden>
-  <header class="chathead"><button class="iconbtn mobileback" id="back" aria-label="Back">‹</button><div class="avatar" id="chatAvatar">?</div><div class="who"><div class="name" id="chatName">Chat</div><div class="sub" id="chatSub">ChatWave conversation</div></div><button class="callbtn" id="voiceCall" title="Voice call" aria-label="Start voice call">☎</button></header>
+  <header class="chathead"><button class="iconbtn mobileback" id="back" aria-label="Back">‹</button><div class="avatar" id="chatAvatar">?</div><div class="who"><div class="name" id="chatName">Chat</div><div class="sub" id="chatSub">ChatWave conversation</div></div><button class="callbtn" id="leaveVoicemail" title="Leave a voicemail" aria-label="Record a voicemail">🎙</button><button class="callbtn" id="voiceCall" title="Voice call" aria-label="Start voice call">☎</button></header>
   <div class="messages" id="messages"></div>
   <form class="composer" id="composer"><button type="button" class="iconbtn" id="emoji" title="Add emoji">☺</button><div class="composebox"><textarea id="message" rows="1" placeholder="Type a message" aria-label="Message" maxlength="4000"></textarea></div><button class="send" aria-label="Send message" title="Send">➤</button></form>
  </section>
@@ -125,9 +125,18 @@ function stopCallTabAlert(){
 let voicemailRecorder=null,voicemailChunks=[],voicemailStream=null,voicemailStartedAt=0,voicemailDurationSeconds=0,voicemailBlob=null,voicemailContext=null;
 function showVoicemailRecorder(context){
  voicemailContext=context;voicemailBlob=null;voicemailChunks=[];
- $('callOverlay').innerHTML='<div class="callback"><div class="callcard"><div class="avatar">🎙</div><h2>Leave a voicemail</h2><p>They couldn’t answer. Record a short voice message for '+esc(context.name||'your friend')+'.</p><div class="callstatus" id="vmStatus">Ready to record · maximum 3 minutes</div><div class="callactions" id="vmActions"><button class="acceptcall" id="vmRecord">Record message</button><button class="mutecall" id="vmCancel">Cancel</button></div></div></div>';
+ const title=context.direct?'Record a voicemail':'Leave a voicemail';
+ const description=context.direct?'Record a voice message to send to '+esc(context.name||'your friend')+'.':'They couldn’t answer. Record a short voice message for '+esc(context.name||'your friend')+'.';
+ $('callOverlay').innerHTML='<div class="callback"><div class="callcard"><div class="avatar">🎙</div><h2>'+title+'</h2><p>'+description+'</p><div class="callstatus" id="vmStatus">Ready to record · maximum 3 minutes</div><div class="callactions" id="vmActions"><button class="acceptcall" id="vmRecord">Record message</button><button class="mutecall" id="vmCancel">Cancel</button></div></div></div>';
  $('vmCancel').onclick=cancelVoicemailRecording;
  $('vmRecord').onclick=startVoicemailRecording;
+}
+function startDirectVoicemail(){
+ const chat=current();
+ if(!state.user||!chat){notify('Open a conversation first.');return;}
+ if(!chat.otherId){notify('Could not find the other participant.');return;}
+ if(state.call){notify('Finish your current call first.');return;}
+ showVoicemailRecorder({conversationId:chat.id,recipientId:chat.otherId,name:chat.name,direct:true});
 }
 async function startVoicemailRecording(){
  try{
@@ -499,6 +508,7 @@ function profileModal(){
 }
 $('newChat').onclick=$('startChat').onclick=newChatModal;
 $('voiceCall').onclick=startVoiceCall;
+ $('leaveVoicemail').onclick=startDirectVoicemail;
 $('profileBtn').onclick=profileModal;
 $('search').oninput=renderList;
 $('back').onclick=()=>$('app').classList.remove('showchat');
