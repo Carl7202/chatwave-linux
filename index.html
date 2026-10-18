@@ -137,7 +137,7 @@ function showVoicemailRecorder(context){
 function startDirectVoicemail(){
  const chat=current();
  if(!state.user||!chat){notify('Open a conversation first.');return;}
- if(!chat.otherId){notify('Could not find the other participant.');return;}
+ if(!chat.otherId){notify('Voice calls currently work in direct chats. Group calling needs a multiparty call server/mesh.');return;}
  if(state.call){notify('Finish your current call first.');return;}
  showVoicemailRecorder({conversationId:chat.id,recipientId:chat.otherId,name:chat.name,direct:true});
 }
@@ -290,6 +290,7 @@ async function startSession(user){
  $('myName').textContent=profile.username;$('myAvatar').textContent=initials(profile.username);$('myHandle').textContent=profile.phone_number||'ChatWave number unavailable';
  setStatus('Connected · real-time messaging enabled');
  await loadChats();
+ setPresence('online');if(state.presenceTimer)clearInterval(state.presenceTimer);state.presenceTimer=setInterval(()=>setPresence(document.hidden?'idle':(state.presence[state.user.id]?.status||'online')),60000);
  if(state.realtime)await supabase.removeChannel(state.realtime);
  state.realtime=supabase.channel('chatwave-all-messages-'+user.id)
   .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},payload=>{
@@ -305,7 +306,10 @@ async function startSession(user){
     if(state.active===v.conversation_id)loadMessages(state.active);
     notify('New voicemail received.');
    }
-  }).subscribe(status=>{if(status==='SUBSCRIBED')setStatus('Connected · live');});
+  })
+  .on('postgres_changes',{event:'*',schema:'public',table:'chatwave_message_reactions'},payload=>{const row=payload.new||payload.old;if(row?.conversation_id&&state.active===row.conversation_id)loadMessages(state.active);})
+  .on('postgres_changes',{event:'*',schema:'public',table:'chatwave_presence'},payload=>{const p=payload.new;if(p?.user_id){state.presence[p.user_id]=p;renderList();if(state.active){const ch=current();if(ch&&!ch.isGroup)$('chatSub').textContent='@'+ch.name+' · '+presenceText(ch.otherId);}}})
+  .subscribe(status=>{if(status==='SUBSCRIBED')setStatus('Connected · live');});
 }
 function applyTheme(theme){
  state.theme=theme||'discord';document.documentElement.dataset.theme=state.theme;
@@ -547,19 +551,22 @@ function renderCall(title,status, incoming=false){
  if(incoming){
   buttons='<button class="endcall" id="declineCall">Decline</button><button class="acceptcall" id="acceptCall">Accept</button>';
  }else{
-  buttons=(c.pc&&c.pc.connectionState==='connected'?'<button class="mutecall" id="muteCall">'+(c.muted?'Unmute':'Mute')+'</button>':'')+'<button class="endcall" id="endCall">End call</button>';
+  buttons=(c.pc&&c.pc.connectionState==='connected'?'<button class="mutecall" id="muteCall">'+(c.muted?'Unmute':'Mute')+'</button><button class="mutecall" id="screenShare">▣ Share screen</button><button class="mutecall" id="callSoundboard">♫ Soundboard</button>':'')+'<button class="endcall" id="endCall">End call</button>';
  }
  $('callOverlay').innerHTML=callMarkup(title,name,status,buttons);
  if($('acceptCall'))$('acceptCall').onclick=()=>acceptIncomingCall();
  if($('declineCall'))$('declineCall').onclick=()=>finishCall('declined',true);
  if($('endCall'))$('endCall').onclick=()=>finishCall('ended',true);
  if($('muteCall'))$('muteCall').onclick=()=>{if(!state.call)return;state.call.muted=!state.call.muted;state.call.stream?.getAudioTracks().forEach(t=>t.enabled=!state.call.muted);renderCall('Voice call',state.call.pc?.connectionState==='connected'?'Connected': 'Connecting…');};
+ if($('screenShare'))$('screenShare').onclick=shareScreen;
+ if($('callSoundboard'))$('callSoundboard').onclick=()=>openSoundboard();
 }
 function newPeer(c){
  const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun.cloudflare.com:3478'}]});
  c.pc=pc;
  pc.onicecandidate=e=>{if(e.candidate)sendCallSignal(c.conversationId,{type:'ice',callId:c.id,candidate:e.candidate}).catch(console.warn);};
  pc.ontrack=e=>{
+  if(e.track?.kind==='video'){const screen=$('remoteScreen');screen.srcObject=e.streams[0];screen.hidden=false;screen.style.cssText='position:fixed;right:18px;bottom:18px;width:min(420px,45vw);max-height:40vh;z-index:45;border:2px solid #5865f2;border-radius:10px;background:#111;object-fit:contain';return;}
   const audio=$('remoteAudio');
   try{
    const Ctx=window.AudioContext||window.webkitAudioContext;
@@ -581,6 +588,18 @@ function newPeer(c){
   else if(pc.connectionState==='disconnected')renderCall('Voice call','Reconnecting…');
  };
  return pc;
+}
+async function shareScreen(){
+ const c=state.call;if(!c?.pc||c.pc.connectionState!=='connected'){notify('Connect a call before sharing your screen.');return;}
+ if(!navigator.mediaDevices?.getDisplayMedia){notify('Screen sharing is not supported in this browser.');return;}
+ try{
+  const stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:15},audio:false});
+  const track=stream.getVideoTracks()[0];if(!track)return;
+  const sender=c.pc.addTrack(track,stream);c.screenTrack=track;c.screenSender=sender;
+  track.onended=()=>{try{c.pc?.removeTrack(sender);}catch{}c.screenTrack=null;c.screenSender=null;$('remoteScreen').hidden=true;$('remoteScreen').srcObject=null;};
+  notify('Screen sharing started. Your browser may ask you to choose a window.');
+  renderCall('Voice call','Connected · screen sharing');
+ }catch(e){if(e.name!=='NotAllowedError')notify('Could not share screen: '+(e.message||'try again'));}
 }
 async function startVoiceCall(){
  const chat=current();
@@ -655,13 +674,13 @@ async function finishCall(reason, notifyPeer){
  if(notifyPeer){sendCallSignal(c.conversationId,{type:reason==='declined'?'decline':'ended',callId:c.id,to:c.otherId}).catch(()=>{});}
  try{c.pc?.close();}catch(e){}
  try{c.stream?.getTracks().forEach(t=>t.stop());}catch(e){}
- $('remoteAudio').srcObject=null;$('callOverlay').innerHTML='';
+ $('remoteAudio').srcObject=null;$('remoteScreen').srcObject=null;$('remoteScreen').hidden=true;$('remoteScreen').style.cssText='';$('callOverlay').innerHTML='';
 }
 
 function newChatModal(){
  if(!state.user){onboardingModal();return;}
- $('overlay').innerHTML='<div class="modalback" id="modalback"><div class="modal"><h2>Add a friend</h2><p>Enter their fictional ChatWave number. These numbers only work inside ChatWave.</p><label>ChatWave number<input id="userSearch" placeholder="07482 123456" maxlength="24" autocomplete="off"></label><div id="userResults" style="margin-top:12px;color:var(--muted);font-size:13px">Ask your friend for their ChatWave number.</div><button class="secondary" id="cancelModal">Close</button></div></div>';
- $('cancelModal').onclick=closeModal;$('modalback').onclick=e=>{if(e.target.id==='modalback')closeModal();};
+ $('overlay').innerHTML='<div class="modalback" id="modalback"><div class="modal"><h2>Start a conversation</h2><button class="primary" id="createGroupEntry">＋ Create group chat</button><p>Or find a friend by their fictional ChatWave number.</p><label>ChatWave number<input id="userSearch" placeholder="07482 123456" maxlength="24" autocomplete="off"></label><div id="userResults" style="margin-top:12px;color:var(--muted);font-size:13px">Ask your friend for their ChatWave number.</div><button class="secondary" id="cancelModal">Close</button></div></div>';
+ $('cancelModal').onclick=closeModal;$('modalback').onclick=e=>{if(e.target.id==='modalback')closeModal();};$('createGroupEntry').onclick=()=>{closeModal();createGroupModal();};
  let timer;$('userSearch').oninput=()=>{clearTimeout(timer);timer=setTimeout(()=>searchUsers($('userSearch').value),250);};$('userSearch').focus();
 }
 function profileModal(){
@@ -676,6 +695,11 @@ $('newChat').onclick=$('startChat').onclick=newChatModal;
 $('voiceCall').onclick=startVoiceCall;
  $('leaveVoicemail').onclick=startDirectVoicemail;
 $('profileBtn').onclick=profileModal;
+$('chatOptions').onclick=showChatOptions;
+$('attachFile').onclick=()=>{if(!current()){notify('Open a chat first.');return;}$('fileInput').click();};
+$('fileInput').onchange=async()=>{const f=$('fileInput').files?.[0];$('fileInput').value='';if(f)await uploadAttachment(f);};
+$('message').addEventListener('input',()=>sendTyping());
+$('message').addEventListener('paste',e=>{const item=[...(e.clipboardData?.items||[])].find(x=>x.type.startsWith('image/'));if(item){const f=item.getAsFile();if(f){e.preventDefault();uploadAttachment(f);}}});
 $('search').oninput=renderList;
 $('back').onclick=()=>$('app').classList.remove('showchat');
 $('composer').onsubmit=async e=>{e.preventDefault();const v=$('message').value;if(!v.trim())return;const b=$('composer').querySelector('.send');b.disabled=true;try{await sendMessage(v);}catch(err){notify(err.message||'Message could not be sent.');}finally{b.disabled=false;}};
