@@ -22,7 +22,7 @@
  <div class="chatlist" id="chatlist"></div>
 </aside>
 <main class="main" id="main">
- <div class="welcome" id="welcome"><div class="biglogo"><svg viewBox="0 0 24 24" width="58" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.5 11.5a8.4 8.4 0 0 1-12.4 7.4L3 20l1.2-4.7A8.5 8.5 0 1 1 20.5 11.5Z"/><path d="M8 8.5c.7 2.5 2.3 4.1 4.8 5"/></svg></div><h1>ChatWave</h1><p>Messages that flow. Find your friends and start talking.</p><button class="primary" style="max-width:210px" id="startChat">＋ Start a chat</button><div class="hint">🔒 Your messages are stored online and access is restricted to conversation members.<br>No phone number needed.</div></div>
+ <div class="welcome" id="welcome"><div class="biglogo"><svg viewBox="0 0 24 24" width="58" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.5 11.5a8.4 8.4 0 0 1-12.4 7.4L3 20l1.2-4.7A8.5 8.5 0 1 1 20.5 11.5Z"/><path d="M8 8.5c.7 2.5 2.3 4.1 4.8 5"/></svg></div><h1>ChatWave</h1><p>Messages that flow. Find your friends and start talking.</p><button class="primary" style="max-width:210px" id="startChat">＋ Start a chat</button><div class="hint">🔒 Your messages are stored online and access is restricted to conversation members.<br>Use a fictional ChatWave number — no real phone or email required.</div></div>
  <section class="conversation" id="conversation" hidden>
   <header class="chathead"><button class="iconbtn mobileback" id="back" aria-label="Back">‹</button><div class="avatar" id="chatAvatar">?</div><div class="who"><div class="name" id="chatName">Chat</div><div class="sub" id="chatSub">ChatWave conversation</div></div></header>
   <div class="messages" id="messages"></div>
@@ -59,41 +59,62 @@ function modal(title,desc,fields,submitLabel,callback,opts={}){
  $('modalform').onsubmit=async e=>{e.preventDefault();const data={};fields.forEach(f=>data[f.name]=$('modalform').elements[f.name].value.trim());const btn=$('modalform').querySelector('.primary');btn.disabled=true;btn.textContent='Please wait…';try{await callback(data);}catch(err){notify(err.message||'Something went wrong.');}finally{if(btn.isConnected){btn.disabled=false;btn.textContent=submitLabel;}}};
  const first=$('modalform').querySelector('input');if(first)first.focus();
 }
-function authModal(mode='signin'){
- const signup=mode==='signup';
- const fields=signup?[
- {name:'username',label:'Username (shown to friends)',placeholder:'letters_numbers',max:20,autocomplete:'username'},
- {name:'email',label:'Email address',placeholder:'you@example.com',type:'email',max:254,autocomplete:'email'},
- {name:'password',label:'Password (8+ characters)',placeholder:'Create a password',type:'password',max:128,autocomplete:'new-password'}
- ]:[
- {name:'email',label:'Email address',placeholder:'you@example.com',type:'email',max:254,autocomplete:'email'},
- {name:'password',label:'Password',placeholder:'Your password',type:'password',max:128,autocomplete:'current-password'}
- ];
- modal(signup?'Create your ChatWave account':'Welcome back','Email and password only — no phone number needed.',fields,signup?'Create account':'Sign in',async d=>{
-  if(signup){
-   const username=d.username.toLowerCase();
-   if(!/^[a-z0-9_]{3,20}$/.test(username)){notify('Username must be 3–20 letters, numbers, or underscores.');return;}
-   if(d.password.length<8){notify('Use a password with at least 8 characters.');return;}
-   const {data,error}=await supabase.auth.signUp({email:d.email,password:d.password,options:{data:{username},emailRedirectTo:window.location.href}});
-   if(error)throw error;
-   if(data.session){closeModal();await startSession(data.session.user);notify('Account created. Welcome to ChatWave!');}
-   else {closeModal();notify('Account created. Check your email to confirm it, then sign in.');}
-  }else{
-   const {data,error}=await supabase.auth.signInWithPassword({email:d.email,password:d.password});
-   if(error)throw error;closeModal();await startSession(data.user);
-  }
- },{cancel:false,link:signup?'Already have an account? Sign in':'New to ChatWave? Create an account',onLink:()=>authModal(signup?'signin':'signup')});
+async function chatwaveAuth(payload){
+ const {data,error}=await supabase.functions.invoke('chatwave-auth',{body:payload});
+ if(error){let message=error.message||'Authentication failed.';try{const payload=await error.context?.json?.();if(payload?.error)message=payload.error;}catch(e){}throw new Error(message);}
+ if(data?.error)throw new Error(data.error);
+ if(!data?.session?.access_token||!data?.session?.refresh_token)throw new Error('No session was returned. Try again.');
+ const {data:sessionData,error:setError}=await supabase.auth.setSession({access_token:data.session.access_token,refresh_token:data.session.refresh_token});
+ if(setError)throw setError;
+ return sessionData.session;
 }
-function requireAuth(){authModal('signin');}
+function cleanPhone(value){return String(value||'').replace(/[^0-9+]/g,'');}
+function onboardingModal(){
+ modal('You’re invited to ChatWave','Enter a friend’s invite code to unlock account creation. You’ll make your own fictional ChatWave number next.',[
+  {name:'invite_code',label:'Invite code',placeholder:'CW-7K9P-2MXQ',max:12,autocomplete:'off'}
+ ],'Continue',async d=>{
+  const code=d.invite_code.toUpperCase().replace(/\s+/g,'');
+  const {data,error}=await supabase.rpc('chatwave_check_onboarding_invite',{p_invite_code:code});
+  if(error)throw error;
+  if(!data?.length){notify('That invite code is invalid. Ask a ChatWave user for their code.');return;}
+  closeModal();createAccountModal(code,data[0].inviter_username);
+ },{cancel:false,link:'Already have a ChatWave number? Log in',onLink:loginModal});
+}
+function createAccountModal(inviteCode,inviterName){
+ modal('Create your account','Invited by '+inviterName+'. Choose a fictional number for ChatWave only — do not enter your real phone number. No SMS or calls.',[
+  {name:'phone_number',label:'Your custom fake phone number',placeholder:'e.g. 07482 123456',max:24,autocomplete:'off'},
+  {name:'username',label:'Username',placeholder:'letters_numbers',max:20,autocomplete:'username'},
+  {name:'password',label:'Password (8+ characters)',placeholder:'Create a password',type:'password',max:128,autocomplete:'new-password'}
+ ],'Create account',async d=>{
+  const phone=cleanPhone(d.phone_number),username=d.username.toLowerCase();
+  if(!/^[+]?[0-9]{5,20}$/.test(phone)){notify('Use a fictional ChatWave number with 5–20 digits.');return;}
+  if(!/^[a-z0-9_]{3,20}$/.test(username)){notify('Username must be 3–20 letters, numbers, or underscores.');return;}
+  if(d.password.length<8){notify('Use a password with at least 8 characters.');return;}
+  const session=await chatwaveAuth({action:'register',invite_code:inviteCode,phone_number:phone,username,password:d.password});
+  closeModal();await startSession(session.user);notify('Account created! You can now chat with '+inviterName+'.');
+ },{cancel:false,link:'Back to invite code',onLink:onboardingModal});
+}
+function loginModal(){
+ modal('Log in to ChatWave','Use your fictional ChatWave number and password. No email or real phone number.',[
+  {name:'phone_number',label:'ChatWave number',placeholder:'Your fake number',max:24,autocomplete:'username'},
+  {name:'password',label:'Password',placeholder:'Your password',type:'password',max:128,autocomplete:'current-password'}
+ ],'Log in',async d=>{
+  const phone=cleanPhone(d.phone_number);
+  if(!/^[+]?[0-9]{5,20}$/.test(phone)){notify('Enter your ChatWave number.');return;}
+  const session=await chatwaveAuth({action:'login',phone_number:phone,password:d.password});
+  closeModal();await startSession(session.user);notify('Welcome back!');
+ },{cancel:false,link:'Need an invite code?',onLink:onboardingModal});
+}
+function requireAuth(){onboardingModal();}
 async function startSession(user){
  state.user=user;
- const {data:profile,error}=await supabase.from('profiles').select('id,username').eq('id',user.id).maybeSingle();
+ const {data:profile,error}=await supabase.from('profiles').select('id,username,phone_number').eq('id',user.id).maybeSingle();
  if(error)throw error;
  if(!profile){setStatus('Profile is being created…');notify('If you just signed up, confirm your email first, then sign in.');return;}
  const {data:inviteCode,error:inviteError}=await supabase.rpc('get_my_chatwave_invite');
  if(inviteError)throw inviteError;
  state.profile={...profile,invite_code:inviteCode};
- $('myName').textContent=profile.username;$('myAvatar').textContent=initials(profile.username);$('myHandle').textContent=inviteCode||'Invite code unavailable';
+ $('myName').textContent=profile.username;$('myAvatar').textContent=initials(profile.username);$('myHandle').textContent=profile.phone_number||'ChatWave number unavailable';
  setStatus('Connected · real-time messaging enabled');
  await loadChats();
  if(state.realtime)await supabase.removeChannel(state.realtime);
@@ -166,14 +187,12 @@ async function sendMessage(body){
 }
 async function searchUsers(query){
  const list=$('userResults');
- const code=query.trim().toUpperCase().replace(/\s+/g,'');
- if(!/^CW-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/.test(code)){
-  list.innerHTML='<p>Enter the full invite code, like CW-7K9P-2MXQ.</p>';return;
- }
- list.innerHTML='<p>Looking up invite code…</p>';
- const {data,error}=await supabase.rpc('find_chatwave_invite',{p_invite_code:code});
+ const phone=cleanPhone(query);
+ if(!/^[+]?[0-9]{5,20}$/.test(phone)){list.innerHTML='<p>Enter the full fictional ChatWave number.</p>';return;}
+ list.innerHTML='<p>Looking up ChatWave number…</p>';
+ const {data,error}=await supabase.rpc('find_chatwave_phone',{p_phone_number:phone});
  if(error){list.textContent=error.message;return;}
- list.innerHTML=data.length?data.map(p=>'<button class="resultrow" data-user="'+esc(p.user_id)+'"><div class="avatar">'+esc(initials(p.username))+'</div><div><div class="name">'+esc(p.username)+'</div><div class="sub">ChatWave ID · '+esc(code)+'</div></div></button>').join(''):'<p>No account found for that invite code. Check the code and try again.</p>';
+ list.innerHTML=data.length?data.map(p=>'<button class="resultrow" data-user="'+esc(p.user_id)+'"><div class="avatar">'+esc(initials(p.username))+'</div><div><div class="name">'+esc(p.username)+'</div><div class="sub">ChatWave number · '+esc(p.phone_number)+'</div></div></button>').join(''):'<p>No account found for that ChatWave number. Check it and try again.</p>';
  list.querySelectorAll('[data-user]').forEach(b=>b.onclick=async()=>{
   const btn=b;btn.disabled=true;
   try{const {data,error}=await supabase.rpc('create_direct_conversation',{target_user_id:btn.dataset.user});if(error)throw error;closeModal();await loadChats();await openChat(data);}
@@ -181,14 +200,14 @@ async function searchUsers(query){
  });
 }
 function newChatModal(){
- if(!state.user){requireAuth();return;}
- $('overlay').innerHTML='<div class="modalback" id="modalback"><div class="modal"><h2>Add a friend</h2><p>Enter their unique ChatWave invite code — it works like a phone number, but only on ChatWave.</p><label>Invite code<input id="userSearch" placeholder="CW-7K9P-2MXQ" maxlength="12" autocomplete="off" autocapitalize="characters"></label><div id="userResults" style="margin-top:12px;color:var(--muted);font-size:13px">Ask your friend to share their ChatWave code.</div><button class="secondary" id="cancelModal">Close</button></div></div>';
+ if(!state.user){onboardingModal();return;}
+ $('overlay').innerHTML='<div class="modalback" id="modalback"><div class="modal"><h2>Add a friend</h2><p>Enter their fictional ChatWave number. These numbers only work inside ChatWave.</p><label>ChatWave number<input id="userSearch" placeholder="07482 123456" maxlength="24" autocomplete="off"></label><div id="userResults" style="margin-top:12px;color:var(--muted);font-size:13px">Ask your friend for their ChatWave number.</div><button class="secondary" id="cancelModal">Close</button></div></div>';
  $('cancelModal').onclick=closeModal;$('modalback').onclick=e=>{if(e.target.id==='modalback')closeModal();};
  let timer;$('userSearch').oninput=()=>{clearTimeout(timer);timer=setTimeout(()=>searchUsers($('userSearch').value),250);};$('userSearch').focus();
 }
 function profileModal(){
- if(!state.profile){requireAuth();return;}
- $('overlay').innerHTML='<div class="modalback" id="modalback"><div class="modal"><h2>Your ChatWave ID</h2><p>This unique invite code works like your ChatWave phone number. Share it with friends so they can add you.</p><div style="display:flex;align-items:center;gap:8px;margin:18px 0"><input id="myInviteCode" readonly value="'+esc(state.profile.invite_code||'Not assigned')+'" style="font-size:20px;font-weight:800;letter-spacing:1px;text-align:center"><button class="primary" id="copyInvite" style="margin:0;width:auto;white-space:nowrap">Copy</button></div><form id="usernameForm"><label>Display username<input name="username" id="newUsername" maxlength="20" value="'+esc(state.profile.username)+'" required></label><button class="primary" type="submit">Save username</button></form><button class="secondary" id="signoutBtn">Sign out</button><button class="secondary" id="cancelModal">Close</button></div></div>';
+ if(!state.profile){onboardingModal();return;}
+ $('overlay').innerHTML='<div class="modalback" id="modalback"><div class="modal"><h2>Your ChatWave identity</h2><p>Your custom fake number is how friends find you. Your invite code lets friends create accounts. Neither is a real phone number or SMS service.</p><label>Your ChatWave number<input readonly value="'+esc(state.profile.phone_number||'Not assigned')+'" style="font-size:18px;font-weight:800;text-align:center"></label><label>Your invite code<input id="myInviteCode" readonly value="'+esc(state.profile.invite_code||'Not assigned')+'" style="font-size:18px;font-weight:800;letter-spacing:1px;text-align:center"></label><button class="primary" id="copyInvite">Copy invite code</button><form id="usernameForm"><label>Display username<input name="username" id="newUsername" maxlength="20" value="'+esc(state.profile.username)+'" required></label><button class="primary" type="submit">Save username</button></form><button class="secondary" id="signoutBtn">Sign out</button><button class="secondary" id="cancelModal">Close</button></div></div>';
  $('cancelModal').onclick=closeModal;$('modalback').onclick=e=>{if(e.target.id==='modalback')closeModal();};
  $('copyInvite').onclick=async()=>{try{await navigator.clipboard.writeText(state.profile.invite_code);notify('Invite code copied!');}catch(e){$('myInviteCode').select();notify('Select and copy your invite code.');}};
  $('signoutBtn').onclick=async()=>{closeModal();await supabase.auth.signOut();};
@@ -204,13 +223,13 @@ $('message').addEventListener('input',function(){this.style.height='24px';this.s
 $('emoji').onclick=()=>{const t=$('message'),a=t.selectionStart,b=t.selectionEnd,v=t.value;t.value=v.slice(0,a)+'🙂'+v.slice(b);t.focus();t.selectionStart=t.selectionEnd=a+2;};
 supabase.auth.onAuthStateChange((event,session)=>{
  if(session?.user&&(!state.user||state.user.id!==session.user.id)){setTimeout(()=>startSession(session.user).catch(e=>{notify(e.message);setStatus('Connection error');}),0);}
- else if(!session?.user&&state.user){state.user=null;state.profile=null;state.chats=[];state.active=null;if(state.realtime)supabase.removeChannel(state.realtime);state.realtime=null;$('myName').textContent='Signed out';$('myAvatar').textContent='CW';$('myHandle').textContent='No account';$('chatlist').innerHTML='';$('conversation').hidden=true;$('welcome').hidden=false;setStatus('Signed out');setTimeout(()=>authModal('signin'),0);}
+ else if(!session?.user&&state.user){state.user=null;state.profile=null;state.chats=[];state.active=null;if(state.realtime)supabase.removeChannel(state.realtime);state.realtime=null;$('myName').textContent='Signed out';$('myAvatar').textContent='CW';$('myHandle').textContent='No account';$('chatlist').innerHTML='';$('conversation').hidden=true;$('welcome').hidden=false;setStatus('Signed out');setTimeout(()=>onboardingModal(),0);}
 });
 (async()=>{
  try{
   const {data:{session}}=await supabase.auth.getSession();
   if(session?.user)await startSession(session.user);
-  else {setStatus('Sign in to message friends');authModal('signin');}
+  else {setStatus('Enter an invite code to join ChatWave');onboardingModal();}
  }catch(e){setStatus('Could not connect');notify(e.message||'Could not connect to ChatWave.');}
 })();
 </script>
