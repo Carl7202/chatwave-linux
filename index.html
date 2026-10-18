@@ -181,10 +181,31 @@ function cancelVoicemailRecording(){
  voicemailStream?.getTracks().forEach(t=>t.stop());voicemailStream=null;
  voicemailContext=null;voicemailBlob=null;$('callOverlay').innerHTML='';
 }
+async function playAmplifiedVoicemail(button){
+ if(button.dataset.playing==='1'){
+  window._chatWaveVmSource?.stop();window._chatWaveVmSource=null;button.dataset.playing='0';button.textContent='▶ Play amplified voicemail (250%)';return;
+ }
+ try{
+  button.disabled=true;button.textContent='Loading audio…';
+  const Ctx=window.AudioContext||window.webkitAudioContext;
+  if(!Ctx)throw new Error('This browser does not support audio amplification');
+  const ctx=window._chatWaveVmContext||(window._chatWaveVmContext=new Ctx());
+  await ctx.resume();
+  const response=await fetch(button.dataset.vmSrc);
+  if(!response.ok)throw new Error('Could not download voicemail audio');
+  const buffer=await ctx.decodeAudioData(await response.arrayBuffer());
+  if(window._chatWaveVmSource){try{window._chatWaveVmSource.stop();}catch{}}
+  const source=ctx.createBufferSource(),gain=ctx.createGain();
+  source.buffer=buffer;gain.gain.value=2.5;source.connect(gain);gain.connect(ctx.destination);
+  window._chatWaveVmSource=source;button.dataset.playing='1';button.disabled=false;button.textContent='■ Stop amplified voicemail';
+  source.onended=()=>{if(window._chatWaveVmSource===source)window._chatWaveVmSource=null;button.dataset.playing='0';button.disabled=false;button.textContent='▶ Play amplified voicemail (250%)';};
+  source.start();
+ }catch(e){button.disabled=false;button.dataset.playing='0';button.textContent='▶ Play amplified voicemail (250%)';notify('Could not play amplified voicemail: '+(e.message||'try again'));}
+}
 async function voicemailMarkup(v){
  const {data,error}=await supabase.storage.from('chatwave-voicemails').createSignedUrl(v.storage_path,3600);
  const who=v.caller_id===state.user.id?'You left a voicemail':'Voicemail';
- return '<div class="msg '+(v.caller_id===state.user.id?'mine':'theirs')+'"><strong>🎙 '+who+'</strong><div style="margin:7px 0">'+(error?'Audio unavailable':'<audio class="voicemail-audio" controls preload="none" crossorigin="anonymous" style="max-width:100%;width:260px" src="'+esc(data.signedUrl)+'"></audio>')+'</div><div class="stamp">'+time(v.created_at)+' · '+Math.max(1,v.duration_seconds)+'s · 250% volume</div></div>';
+ return '<div class="msg '+(v.caller_id===state.user.id?'mine':'theirs')+'"><strong>🎙 '+who+'</strong><div style="margin:7px 0">'+(error?'Audio unavailable':'<button class="voicemail-play" data-vm-src="'+esc(data.signedUrl)+'" style="padding:8px 12px;border:0;border-radius:8px;background:#5865f2;color:white;cursor:pointer;font-weight:600">▶ Play amplified voicemail (250%)</button>')+'</div><div class="stamp">'+time(v.created_at)+' · '+Math.max(1,v.duration_seconds)+'s · 250% gain</div></div>';
 }
 
 let toastTimer = null;
@@ -339,17 +360,7 @@ async function loadMessages(id){
   if(m._kind==='voicemail')return label+voicemailHtml[m.id];
   return label+'<div class="msg '+(m.sender_id===state.user.id?'mine':'theirs')+'">'+esc(m.body)+'<div class="stamp">'+time(m.created_at)+(m.sender_id===state.user.id?' <span>✓</span>':'')+'</div></div>';
  }).join('')||'<div class="emptychat"><h2>Say hello 👋</h2><p>Your messages with '+esc(current()?.name||'your friend')+' will show up here.</p></div>';
- box.querySelectorAll('audio.voicemail-audio').forEach(audio=>{
-  audio.addEventListener('play',()=>{
-   if(audio.dataset.amplified==='1')return;
-   try{
-    const Ctx=window.AudioContext||window.webkitAudioContext;if(!Ctx)return;
-    const ctx=new Ctx(),source=ctx.createMediaElementSource(audio),gain=ctx.createGain();
-    gain.gain.value=2.5;source.connect(gain);gain.connect(ctx.destination);audio.dataset.amplified='1';
-    if(ctx.state==='suspended')ctx.resume();
-   }catch(e){console.warn('Voicemail amplification unavailable:',e);}
-  });
- });
+ box.querySelectorAll('button.voicemail-play').forEach(btn=>btn.onclick=()=>playAmplifiedVoicemail(btn));
  box.scrollTop=box.scrollHeight;
 }
 async function sendMessage(body){
@@ -419,14 +430,18 @@ function newPeer(c){
  c.pc=pc;
  pc.onicecandidate=e=>{if(e.candidate)sendCallSignal(c.conversationId,{type:'ice',callId:c.id,candidate:e.candidate}).catch(console.warn);};
  pc.ontrack=e=>{
-  const audio=$('remoteAudio');audio.srcObject=e.streams[0];
+  const audio=$('remoteAudio');
   try{
-   if(!audio.dataset.amplified){
-    const Ctx=window.AudioContext||window.webkitAudioContext;
-    if(Ctx){const ctx=new Ctx(),source=ctx.createMediaElementSource(audio),gain=ctx.createGain();gain.gain.value=2.5;source.connect(gain);gain.connect(ctx.destination);audio.dataset.amplified='1';audio._chatWaveAudioContext=ctx;}
-   }
-   audio._chatWaveAudioContext?.resume().catch(()=>{});
-  }catch(err){console.warn('Call audio amplification unavailable:',err);}
+   const Ctx=window.AudioContext||window.webkitAudioContext;
+   if(Ctx){
+    if(audio._chatWaveAudioContext)audio._chatWaveAudioContext.close().catch(()=>{});
+    const ctx=new Ctx(),gain=ctx.createGain(),destination=ctx.createMediaStreamDestination();
+    gain.gain.value=2.5;
+    const source=ctx.createMediaStreamSource(e.streams[0]);source.connect(gain);gain.connect(destination);
+    audio._chatWaveAudioContext=ctx;audio.srcObject=destination.stream;
+    ctx.resume().catch(()=>{});
+   }else audio.srcObject=e.streams[0];
+  }catch(err){console.warn('Call audio amplification unavailable:',err);audio.srcObject=e.streams[0];}
   audio.play().catch(()=>notify('Tap the audio controls if sound is blocked.'));
  };
  pc.onconnectionstatechange=()=>{
