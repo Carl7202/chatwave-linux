@@ -64,6 +64,58 @@ const SUPABASE_KEY = 'sb_publishable_g8isti4XwuZ_jukxgAzV9A_3ULHt_LN';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
 const state = { user:null, profile:null, chats:[], active:null, channel:null, realtime:null, filter:'all', loading:false, callChannels:{}, call:null };
+/* Incoming-call ringtone and browser-tab alert */
+let ringContext=null,ringTimer=null,ringNodes=[];
+let originalDocumentTitle=document.title,titleFlashTimer=null,titleFlashState=false;
+function stopRingtone(){
+ if(ringTimer){clearInterval(ringTimer);ringTimer=null;}
+ ringNodes.forEach(n=>{try{n.stop?.();}catch(e){}try{n.disconnect?.();}catch(e){}});
+ ringNodes=[];
+ if(ringContext){try{ringContext.close();}catch(e){}ringContext=null;}
+}
+function playRingBurst(){
+ if(!ringContext||ringContext.state==='closed')return;
+ const now=ringContext.currentTime;
+ [[440,0],[554.37,.18]].forEach(([freq,offset])=>{
+  const osc=ringContext.createOscillator(),gain=ringContext.createGain();
+  osc.type='sine';osc.frequency.setValueAtTime(freq,now+offset);
+  gain.gain.setValueAtTime(.0001,now+offset);
+  gain.gain.exponentialRampToValueAtTime(.10,now+offset+.025);
+  gain.gain.setValueAtTime(.10,now+offset+.15);
+  gain.gain.exponentialRampToValueAtTime(.0001,now+offset+.22);
+  osc.connect(gain);gain.connect(ringContext.destination);
+  osc.start(now+offset);osc.stop(now+offset+.24);ringNodes.push(osc,gain);
+ });
+}
+async function startRingtone(){
+ if(ringTimer)return;
+ try{
+  const AudioCtx=window.AudioContext||window.webkitAudioContext;
+  if(!AudioCtx)return;
+  ringContext=new AudioCtx();
+  if(ringContext.state==='suspended')await ringContext.resume();
+  playRingBurst();
+  ringTimer=setInterval(()=>{
+   if(state.call&&!state.call.initiator&&!state.call.accepted)playRingBurst();
+   else stopRingtone();
+  },2200);
+ }catch(e){console.warn('Incoming ringtone could not start:',e);}
+}
+function startCallTabAlert(name){
+ originalDocumentTitle=document.title;
+ titleFlashState=false;
+ if(titleFlashTimer)clearInterval(titleFlashTimer);
+ titleFlashTimer=setInterval(()=>{
+  if(!state.call){stopCallTabAlert();return;}
+  titleFlashState=!titleFlashState;
+  document.title=titleFlashState?'☎ Incoming call!':'Call from '+(name||'ChatWave');
+ },850);
+}
+function stopCallTabAlert(){
+ if(titleFlashTimer){clearInterval(titleFlashTimer);titleFlashTimer=null;}
+ document.title=originalDocumentTitle||'ChatWave — Messages that flow';
+}
+
 let toastTimer = null;
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function initials(s){return String(s||'?').trim().split(/\s+/).slice(0,2).map(x=>x.charAt(0)).join('').toUpperCase()||'?';}
@@ -296,6 +348,7 @@ async function startVoiceCall(){
 }
 async function acceptIncomingCall(){
  const c=state.call;if(!c||c.initiator)return;
+ stopRingtone();stopCallTabAlert();
  try{
   c.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});
   c.pc=newPeer(c);c.stream.getTracks().forEach(t=>c.pc.addTrack(t,c.stream));c.accepted=true;
@@ -318,7 +371,7 @@ async function handleCallSignal(conversationId,p){
   if(state.call){sendCallSignal(conversationId,{type:'busy',callId:p.callId,to:p.from}).catch(()=>{});return;}
   const chat=state.chats.find(x=>x.id===conversationId);
   state.call={id:p.callId,conversationId,name:chat?.name||p.name||'ChatWave user',otherId:p.from,initiator:false,accepted:false,stream:null,pc:null,iceQueue:[],muted:false};
-  renderCall('Incoming voice call','Someone is calling you',true);return;
+  startRingtone();startCallTabAlert(state.call.name);renderCall('Incoming voice call','Someone is calling you',true);return;
  }
  const c=state.call;
  if(!c||c.conversationId!==conversationId||p.callId!==c.id)return;
@@ -344,6 +397,7 @@ async function handleCallSignal(conversationId,p){
 }
 async function finishCall(reason, notifyPeer){
  const c=state.call;if(!c)return;
+ stopRingtone();stopCallTabAlert();
  state.call=null;
  if(notifyPeer){sendCallSignal(c.conversationId,{type:reason==='declined'?'decline':'ended',callId:c.id,to:c.otherId}).catch(()=>{});}
  try{c.pc?.close();}catch(e){}
