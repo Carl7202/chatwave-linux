@@ -64,13 +64,28 @@ const SUPABASE_KEY = 'sb_publishable_g8isti4XwuZ_jukxgAzV9A_3ULHt_LN';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
 const state = { user:null, profile:null, chats:[], active:null, channel:null, realtime:null, filter:'all', loading:false, callChannels:{}, call:null };
-/* Incoming-call MP3 ringtone and browser-tab alert */
+/* Incoming-call MP3 ringtone, two-repeat timeout, and browser-tab alert */
 const ringtone = $('incomingRingtone');
+let ringtoneRepeats=0,ringtoneEndedHandler=null;
 let originalDocumentTitle=document.title,titleFlashTimer=null,titleFlashState=false;
 async function startRingtone(){
  if(!ringtone)return;
- ringtone.loop=true;
+ stopRingtone();
+ ringtoneRepeats=0;
+ ringtone.loop=false;
  ringtone.currentTime=0;
+ ringtoneEndedHandler=()=>{
+  if(!state.call||state.call.initiator||state.call.accepted){stopRingtone();return;}
+  ringtoneRepeats++;
+  if(ringtoneRepeats>=2){
+   stopRingtone();
+   autoSendToVoicemail();
+   return;
+  }
+  ringtone.currentTime=0;
+  ringtone.play().catch(e=>console.warn('Incoming ringtone could not restart:',e));
+ };
+ ringtone.addEventListener('ended',ringtoneEndedHandler);
  try{await ringtone.play();}
  catch(e){console.warn('Incoming ringtone could not start; the browser may require prior interaction:',e);}
 }
@@ -78,6 +93,18 @@ function stopRingtone(){
  if(!ringtone)return;
  ringtone.pause();
  ringtone.currentTime=0;
+ if(ringtoneEndedHandler){ringtone.removeEventListener('ended',ringtoneEndedHandler);ringtoneEndedHandler=null;}
+ ringtoneRepeats=0;
+}
+async function autoSendToVoicemail(){
+ const c=state.call;
+ if(!c||c.initiator||c.accepted)return;
+ stopRingtone();
+ stopCallTabAlert();
+ state.call=null;
+ $('callOverlay').innerHTML='';
+ sendCallSignal(c.conversationId,{type:'voicemail',callId:c.id,to:c.otherId}).catch(()=>{});
+ notify('No answer — call sent to voicemail.');
 }
 function startCallTabAlert(name){
  originalDocumentTitle=document.title;
@@ -368,6 +395,8 @@ async function handleCallSignal(conversationId,p){
   }else if(p.type==='ice'){
    if(c.pc?.remoteDescription){await c.pc.addIceCandidate(new RTCIceCandidate(p.candidate));}
    else c.iceQueue.push(p.candidate);
+  }else if(p.type==='voicemail'){
+   await finishCall('voicemail',false);notify('No answer — their call went to voicemail.');
   }else if(p.type==='decline'||p.type==='ended'){
    await finishCall(p.type,false);notify(p.type==='decline'?'Call declined.':'Call ended.');
   }else if(p.type==='busy'){await finishCall('busy',false);notify('They are already on another call.');}
