@@ -56,7 +56,7 @@ body{overflow:hidden}button,input,textarea{font:inherit}button{cursor:pointer;co
  </section>
 </main>
 </div>
-<div id="overlay"></div><div id="callOverlay"></div><audio id="remoteAudio" autoplay playsinline></audio><div id="toast" class="notice" hidden></div>
+<div id="overlay"></div><div id="callOverlay"></div><audio id="incomingRingtone" src="ringtone.mp3" preload="auto" loop></audio><audio id="remoteAudio" autoplay playsinline></audio><div id="toast" class="notice" hidden></div>
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = 'https://dhylbrxixjrtqufqrnjh.supabase.co';
@@ -64,42 +64,20 @@ const SUPABASE_KEY = 'sb_publishable_g8isti4XwuZ_jukxgAzV9A_3ULHt_LN';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
 const state = { user:null, profile:null, chats:[], active:null, channel:null, realtime:null, filter:'all', loading:false, callChannels:{}, call:null };
-/* Incoming-call ringtone and browser-tab alert */
-let ringContext=null,ringTimer=null,ringNodes=[];
+/* Incoming-call MP3 ringtone and browser-tab alert */
+const ringtone = $('incomingRingtone');
 let originalDocumentTitle=document.title,titleFlashTimer=null,titleFlashState=false;
-function stopRingtone(){
- if(ringTimer){clearInterval(ringTimer);ringTimer=null;}
- ringNodes.forEach(n=>{try{n.stop?.();}catch(e){}try{n.disconnect?.();}catch(e){}});
- ringNodes=[];
- if(ringContext){try{ringContext.close();}catch(e){}ringContext=null;}
-}
-function playRingBurst(){
- if(!ringContext||ringContext.state==='closed')return;
- const now=ringContext.currentTime;
- [[440,0],[554.37,.18]].forEach(([freq,offset])=>{
-  const osc=ringContext.createOscillator(),gain=ringContext.createGain();
-  osc.type='sine';osc.frequency.setValueAtTime(freq,now+offset);
-  gain.gain.setValueAtTime(.0001,now+offset);
-  gain.gain.exponentialRampToValueAtTime(.10,now+offset+.025);
-  gain.gain.setValueAtTime(.10,now+offset+.15);
-  gain.gain.exponentialRampToValueAtTime(.0001,now+offset+.22);
-  osc.connect(gain);gain.connect(ringContext.destination);
-  osc.start(now+offset);osc.stop(now+offset+.24);ringNodes.push(osc,gain);
- });
-}
 async function startRingtone(){
- if(ringTimer)return;
- try{
-  const AudioCtx=window.AudioContext||window.webkitAudioContext;
-  if(!AudioCtx)return;
-  ringContext=new AudioCtx();
-  if(ringContext.state==='suspended')await ringContext.resume();
-  playRingBurst();
-  ringTimer=setInterval(()=>{
-   if(state.call&&!state.call.initiator&&!state.call.accepted)playRingBurst();
-   else stopRingtone();
-  },2200);
- }catch(e){console.warn('Incoming ringtone could not start:',e);}
+ if(!ringtone)return;
+ ringtone.loop=true;
+ ringtone.currentTime=0;
+ try{await ringtone.play();}
+ catch(e){console.warn('Incoming ringtone could not start; the browser may require prior interaction:',e);}
+}
+function stopRingtone(){
+ if(!ringtone)return;
+ ringtone.pause();
+ ringtone.currentTime=0;
 }
 function startCallTabAlert(name){
  originalDocumentTitle=document.title;
