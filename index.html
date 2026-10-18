@@ -595,14 +595,12 @@ function newPeer(c){
   try{
    const Ctx=window.AudioContext||window.webkitAudioContext;
    if(Ctx){
-    if(audio._chatWaveAudioContext)audio._chatWaveAudioContext.close().catch(()=>{});
-    const ctx=new Ctx(),gain=ctx.createGain(),destination=ctx.createMediaStreamDestination();
-    gain.gain.value=2.5;
-    const source=ctx.createMediaStreamSource(e.streams[0]);source.connect(gain);gain.connect(destination);
-    audio._chatWaveAudioContext=ctx;audio.srcObject=destination.stream;
-    ctx.resume().catch(()=>{});
+    if(!c.remoteAudioContext){c.remoteAudioContext=new Ctx();c.remoteAudioDestination=c.remoteAudioContext.createMediaStreamDestination();c.remoteAudioNodes=[];audio.srcObject=c.remoteAudioDestination.stream;}
+    const source=c.remoteAudioContext.createMediaStreamSource(e.streams[0]),gain=c.remoteAudioContext.createGain();
+    gain.gain.value=2.5;source.connect(gain);gain.connect(c.remoteAudioDestination);c.remoteAudioNodes.push({source,gain});
+    c.remoteAudioContext.resume().catch(()=>{});
    }else audio.srcObject=e.streams[0];
-  }catch(err){console.warn('Call audio amplification unavailable:',err);audio.srcObject=e.streams[0];}
+  }catch(err){console.warn('Call audio amplification unavailable:',err);if(!audio.srcObject)audio.srcObject=e.streams[0];}
   audio.play().catch(()=>notify('Tap the audio controls if sound is blocked.'));
  };
  pc.onconnectionstatechange=()=>{
@@ -704,6 +702,8 @@ async function finishCall(reason, notifyPeer){
  if(notifyPeer){sendCallSignal(c.conversationId,{type:reason==='declined'?'decline':'ended',callId:c.id,to:c.otherId}).catch(()=>{});}
  try{c.pc?.close();}catch(e){}
  try{c.stream?.getTracks().forEach(t=>t.stop());}catch(e){}
+ try{c.screenTrack?.stop();}catch(e){}
+ try{c.remoteAudioContext?.close();}catch(e){}
  $('remoteAudio').srcObject=null;$('remoteScreen').srcObject=null;$('remoteScreen').hidden=true;$('remoteScreen').style.cssText='';$('callOverlay').innerHTML='';
 }
 
