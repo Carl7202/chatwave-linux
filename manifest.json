@@ -1,0 +1,13 @@
+{
+  "name": "ChatWave",
+  "short_name": "ChatWave",
+  "description": "Real-time messages, voice calls and voicemails.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#313338",
+  "theme_color": "#5865f2",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
