@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#090b12">
+<meta name="theme-color" content="#171a1c">
 <title>ChatWave — Messages that flow</title>
 <style>
 :root{color-scheme:dark;--bg:#090b12;--panel:#111521;--panel2:#191e2d;--line:#272d40;--text:#f4f5ff;--muted:#8e96b2;--accent:#9b7bff;--accent2:#7453ec;--bubble:#7357e8;--incoming:#202638}
@@ -36,6 +36,78 @@ button,input,textarea{font:inherit}button{cursor:pointer;color:inherit;border:0}
 @media(max-width:900px){.app{grid-template-columns:280px minmax(0,1fr);padding:10px;gap:10px}.top{padding:0 15px}.brand{font-size:20px}.messages{padding:20px 16px}.msg{max-width:82%}}
 @media(max-width:650px){body{background:#0b0d15}.app{height:100dvh;grid-template-columns:1fr;padding:0;gap:0}.sidebar{border:0;border-radius:0;box-shadow:none}.main{display:none;border:0;border-radius:0;box-shadow:none}.app.showchat .sidebar{display:none}.app.showchat .main{display:flex}.top{height:70px;padding:0 18px}.brand{font-size:23px}.profile{padding:12px 16px}.search{padding:12px 13px 10px}.chatrow{padding:12px 10px}.chatrow .avatar{width:46px;height:46px}.chathead{height:70px;padding:0 12px;gap:9px}.mobileback{display:grid;font-size:29px;width:32px;height:40px;margin-right:0}.chathead .avatar{width:39px;height:39px;border-radius:13px}.messages{padding:17px 12px;gap:9px}.msg{max-width:88%;font-size:15px}.composer{padding:10px 10px calc(10px + env(safe-area-inset-bottom));gap:7px}.composebox{padding:8px 11px;border-radius:15px}.send{width:42px;height:42px;border-radius:13px}.modalback{align-items:end;padding:10px}.modal{width:100%;border-radius:24px 24px 18px 18px;padding:23px 20px calc(20px + env(safe-area-inset-bottom))}.welcome h1{font-size:32px}.callcard{border-radius:25px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+
+/* Linux desktop refresh — Cinnamon/GNOME-inspired, Mint-green accents */
+:root{color-scheme:dark;--bg:#171a1c;--panel:#202426;--panel2:#292e30;--line:#3b4242;--text:#f1f5f2;--muted:#a0adaa;--accent:#a8d96c;--accent2:#78b833;--bubble:#477b36;--incoming:#2c3232}
+html{background:#171a1c}
+body{background:radial-gradient(ellipse at 85% -15%,#293d26 0,transparent 40%),#171a1c;color:var(--text);font-family:Inter,Ubuntu,"Noto Sans",system-ui,-apple-system,sans-serif;letter-spacing:0}
+.app{max-width:1720px;padding:18px;gap:14px}
+.sidebar,.main{border:1px solid #424a47;border-radius:12px;box-shadow:0 16px 45px #0005}
+.sidebar{background:linear-gradient(180deg,#252a2b,#1e2223 65%)}
+.top{height:66px;background:#2b3030;border-bottom:1px solid #414846;padding:0 17px}
+.brand{font-size:20px;font-weight:750;letter-spacing:-.35px}
+.logo{width:35px;height:35px;border-radius:10px;background:linear-gradient(145deg,#b5e879,#78b833);color:#17230f;box-shadow:0 3px 12px #86bf4b33}
+.iconbtn{color:#bac5bd;border-radius:9px}
+.iconbtn:hover{background:#3b4540;color:#d5f4b0}
+.profile{border-bottom-color:#3b4240;padding:14px 16px}
+.avatar{background:linear-gradient(145deg,#a7d96b,#4d8b34);color:#17220f;border-radius:12px;box-shadow:none}
+.sub{color:#a1ada5}
+.search{padding:13px 12px 10px}
+.searchbox{height:39px;background:#181c1d;border:1px solid #3d4542;border-radius:8px;color:#a3afa6}
+.searchbox input{color:#f1f5f2}
+.searchbox input::placeholder{color:#8e9b92}
+.filters{padding:0 12px 10px}
+.filter{background:#303736;color:#b4c0b7;border-radius:7px}
+.filter.active{background:#3c582c;color:#d8f4bb}
+.chatlist{padding:0 7px 10px}
+.chatrow{border-radius:9px;padding:11px 9px}
+.chatrow:hover{background:#303736}
+.chatrow.active{background:linear-gradient(100deg,#354b2c,#2a3528);border-color:#4c6940}
+.chatrow .preview{color:#aab5ad}
+.time{color:#91a096}
+.main{background:linear-gradient(155deg,#222727,#1a1e1f 75%)}
+.welcome .biglogo{background:linear-gradient(145deg,#303e2a,#222b22);border:1px solid #4c6840;color:#b4e47b;border-radius:24px;box-shadow:0 12px 35px #0003}
+.welcome h1{letter-spacing:-1px}
+.welcome p{color:#b0bbb3}
+.welcome .hint{color:#96a39a;border-color:#3b4440}
+.chathead{height:66px;background:#292e2e;border-bottom:1px solid #414846;padding:0 20px}
+.chathead .avatar{background:linear-gradient(145deg,#a7d96b,#4d8b34)}
+.messages{background-color:#1d2222;background-image:radial-gradient(#38403b .7px,transparent .7px);background-size:20px 20px}
+.daylabel{background:#303735;color:#b9c5bc;border:1px solid #414a44;border-radius:7px}
+.msg{background:#2d3433;border:1px solid #414a46;border-radius:12px;box-shadow:0 2px 5px #0002}
+.msg.mine{background:linear-gradient(140deg,#477d35,#356b2a);border-color:#60984b;border-bottom-right-radius:4px}
+.msg.theirs{border-bottom-left-radius:4px}
+.msg .stamp{color:#d3edc6}
+.msg.theirs .stamp{color:#a4b0a7}
+.composer{background:#292e2e;border-top:1px solid #414846;padding:12px 16px 14px}
+.composebox{background:#191d1e;border:1px solid #424b46;border-radius:11px}
+.composebox:focus-within{border-color:#8fc95a}
+.composebox textarea{color:#f1f5f2}
+.composebox textarea::placeholder{color:#8f9b92}
+.send{border-radius:10px;background:linear-gradient(145deg,#b5e879,#78b833);color:#17230f;box-shadow:0 3px 12px #0002}
+.send:hover{filter:brightness(1.08)}
+.notice{background:#dff2ce;color:#1c2a16;border-radius:9px}
+.modalback,.callback{background:#080b09bd;backdrop-filter:blur(8px)}
+.modal,.callcard{background:#252a2a;border:1px solid #454e48;border-radius:14px;box-shadow:0 20px 65px #0008}
+.modal p,.modal label,.callcard p{color:#aab6ad}
+.modal input{background:#171b1b;color:#f1f5f2;border:1px solid #414a45;border-radius:8px}
+.primary{background:linear-gradient(100deg,#a9df70,#7fbd43);color:#182412;border-radius:8px;box-shadow:none}
+.primary:hover{filter:brightness(1.07)}
+.secondary{background:#343a38;color:#c5cec8;border-radius:8px}
+.secondary:hover{background:#414944}
+.linkbtn{color:#b4e47b}
+.resultrow:hover{background:#303735}
+.status{color:#a3aea6;background:#202525;border-bottom:1px solid #3a423e}
+.callbtn{border-radius:10px;background:#33472b;color:#b9e98a;border:1px solid #4b673d}
+.callbtn:hover{background:#415b34}
+.callcard .avatar{background:linear-gradient(145deg,#a7d96b,#4d8b34)}
+.acceptcall{background:#8acb4d;color:#17230f}
+.endcall{background:#d94c50;color:#fff}
+.mutecall{background:#39403d;color:#f1f5f2}
+.callstatus{color:#b5e879}
+@media(max-width:900px){.app{padding:10px;gap:10px}}
+@media(max-width:650px){body{background:#171a1c}.app{padding:0;gap:0}.sidebar,.main{border:0;border-radius:0;box-shadow:none}.top{height:64px}.chathead{height:64px}.messages{background-size:18px 18px}.modal{border-radius:16px 16px 10px 10px}}
+
 </style>
 </head>
 <body>
