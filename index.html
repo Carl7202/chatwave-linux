@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#313338">
+<meta name="theme-color" content="#313338"><meta name="description" content="ChatWave — real-time chats, voice calls, voice messages and more."><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="manifest.json">
 <title>ChatWave — Messages that flow</title>
 <style>
 :root{color-scheme:dark;--bg:#313338;--panel:#2b2d31;--panel2:#383a40;--line:#3f4147;--text:#f2f3f5;--muted:#b5bac1;--accent:#5865f2;--accent2:#4752c4;--bubble:#5865f2;--incoming:#383a40}
@@ -393,8 +393,9 @@ function playSoundboard(kind){
  const osc=ctx.createOscillator(),gain=ctx.createGain();osc.type=kind==='airhorn'?'sawtooth':'sine';osc.frequency.value=freq;gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(kind==='airhorn'?.16:.08,now+.02);gain.gain.exponentialRampToValueAtTime(.0001,now+duration);osc.connect(gain);gain.connect(ctx.destination);osc.start(now);osc.stop(now+duration);setTimeout(()=>ctx.close(),(duration+.1)*1000);
 }
 function openSoundboard(){
- $('callOverlay').innerHTML=callMarkup('Soundboard','ChatWave','Play a sound locally or during a call','<div class="soundboard"><button data-sound="beep">🔔 Beep</button><button data-sound="boop">🫧 Boop</button><button data-sound="alert">🚨 Alert</button><button data-sound="fanfare">🎺 Fanfare</button><button data-sound="airhorn">📢 Airhorn</button><button id="closeSoundboard" class="endcall">Close</button></div>');
- $('callOverlay').querySelectorAll('[data-sound]').forEach(b=>b.onclick=()=>playSoundboard(b.dataset.sound));$('closeSoundboard').onclick=()=>$('callOverlay').innerHTML='';
+ $('overlay').innerHTML='<div class="modalback" id="modalback"><div class="modal"><h2>♫ Call soundboard</h2><p>These effects play locally in this browser.</p><div class="soundboard"><button data-sound="beep">🔔 Beep</button><button data-sound="boop">🫧 Boop</button><button data-sound="alert">🚨 Alert</button><button data-sound="fanfare">🎺 Fanfare</button><button data-sound="airhorn">📢 Airhorn</button></div><button class="secondary" id="cancelModal">Close</button></div></div>';
+ $('cancelModal').onclick=closeModal;$('modalback').onclick=e=>{if(e.target.id==='modalback')closeModal();};
+ $('overlay').querySelectorAll('[data-sound]').forEach(b=>b.onclick=()=>playSoundboard(b.dataset.sound));
 }
 async function renderMessage(m,reactions){
  let attachment='';
@@ -658,9 +659,9 @@ async function handleCallSignal(conversationId,p){
    const offer=await c.pc.createOffer();await c.pc.setLocalDescription(offer);
    await sendCallSignal(c.conversationId,{type:'offer',callId:c.id,description:c.pc.localDescription,to:c.otherId});
    renderCall('Voice call','Connecting audio…');
-  }else if(p.type==='offer'&&!c.initiator){
+  }else if(p.type==='offer'){
    await processCallOffer(c,p.description);
-  }else if(p.type==='answer'&&c.initiator){
+  }else if(p.type==='answer'){
    await c.pc.setRemoteDescription(new RTCSessionDescription(p.description));
    for(const candidate of c.iceQueue.splice(0)){try{await c.pc.addIceCandidate(new RTCIceCandidate(candidate));}catch(e){console.warn(e);}}
    renderCall('Voice call','Connecting audio…');
@@ -715,6 +716,7 @@ $('composer').onsubmit=async e=>{e.preventDefault();const v=$('message').value;i
 $('message').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('composer').requestSubmit();}});
 $('message').addEventListener('input',function(){this.style.height='24px';this.style.height=Math.min(this.scrollHeight,120)+'px';});
 $('emoji').onclick=()=>{const t=$('message'),a=t.selectionStart,b=t.selectionEnd,v=t.value;t.value=v.slice(0,a)+'🙂'+v.slice(b);t.focus();t.selectionStart=t.selectionEnd=a+2;};
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('ChatWave offline app setup failed',e)));}window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();window._chatWaveInstallPrompt=e;});window.addEventListener('pagehide',()=>{if(state.user)setPresence('invisible');});document.addEventListener('visibilitychange',()=>{if(state.user)setPresence(document.hidden?'idle':(state.presence[state.user.id]?.status||'online'));});
 supabase.auth.onAuthStateChange((event,session)=>{
  if(session?.user&&(!state.user||state.user.id!==session.user.id)){setTimeout(()=>startSession(session.user).catch(e=>{notify(e.message);setStatus('Connection error');}),0);}
  else if(!session?.user&&state.user){state.user=null;state.profile=null;state.chats=[];state.active=null;if(state.realtime)supabase.removeChannel(state.realtime);state.realtime=null;$('myName').textContent='Signed out';$('myAvatar').textContent='CW';$('myHandle').textContent='No account';$('chatlist').innerHTML='';$('conversation').hidden=true;$('welcome').hidden=false;setStatus('Signed out');setTimeout(()=>onboardingModal(),0);}
