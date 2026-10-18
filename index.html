@@ -7,7 +7,7 @@
 <title>ChatWave — Messages that flow</title>
 <style>
 :root{color-scheme:dark;--bg:#0b141a;--panel:#111b21;--panel2:#202c33;--line:#29363d;--text:#e9edef;--muted:#8696a0;--green:#00a884;--green2:#075e54;--bubble:#005c4b;--incoming:#202c33}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--text);height:100vh;overflow:hidden}button,input,textarea{font:inherit}button{cursor:pointer;color:inherit;border:0}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--green);outline-offset:2px}.app{height:100dvh;display:grid;grid-template-columns:340px minmax(0,1fr);max-width:1600px;margin:auto;background:var(--panel)}.sidebar{border-right:1px solid var(--line);display:flex;flex-direction:column;min-width:0}.top{height:68px;padding:0 18px;display:flex;align-items:center;justify-content:space-between;background:var(--panel2)}.brand{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:750;letter-spacing:-.5px}.logo{width:36px;height:36px;border-radius:12px;background:var(--green);display:grid;place-items:center;color:#062d27}.logo svg{width:23px}.iconbtn{width:38px;height:38px;display:grid;place-items:center;border-radius:50%;background:transparent;color:var(--muted);font-size:20px}.iconbtn:hover{background:#34434b;color:var(--text)}.profile{padding:13px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}.avatar{width:43px;height:43px;border-radius:50%;display:grid;place-items:center;flex:none;background:#236b60;color:#fff;font-weight:700;font-size:17px}.profile .meta{flex:1;min-width:0}.name{font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sub{color:var(--muted);font-size:12px}.search{padding:10px 12px}.searchbox{display:flex;align-items:center;gap:9px;background:var(--panel2);padding:0 13px;border-radius:9px;height:40px;color:var(--muted)}.searchbox input{background:transparent;border:0;outline:0;color:var(--text);width:100%;min-width:0}.filters{display:flex;gap:8px;padding:0 12px 10px}.filter{border-radius:20px;padding:6px 13px;background:var(--panel2);color:var(--muted);font-size:12px}.filter.active{background:#123d36;color:#69d9bc}.chatlist{overflow:auto;flex:1}.chatrow{width:100%;text-align:left;display:flex;gap:12px;padding:13px 15px;background:transparent;border-bottom:1px solid #202b31;align-items:center}.chatrow:hover{background:#18252b}.chatrow.active{background:#2a3942}.chatrow .details{min-width:0;flex:1}.chatrow .line1,.chatrow .line2{display:flex;align-items:center;justify-content:space-between;gap:8px}.chatrow .preview{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px}.time{color:var(--muted);font-size:11px;white-space:nowrap}.emptylist{padding:30px 20px;text-align:center;color:var(--muted)}.main{display:flex;flex-direction:column;min-width:0;background:#0b141a;position:relative}.welcome{margin:auto;text-align:center;max-width:430px;padding:28px}.welcome .biglogo{width:100px;height:100px;border-radius:32px;background:#102c29;color:var(--green);display:grid;place-items:center;margin:0 auto 24px}.welcome h1{font-size:30px;margin:0 0 10px;letter-spacing:-1px}.welcome p{color:var(--muted)}.welcome .hint{font-size:12px;margin-top:28px;border-top:1px solid var(--line);padding-top:18px}.conversation{display:flex;flex-direction:column;height:100%;min-height:0}.chathead{height:68px;background:var(--panel2);display:flex;align-items:center;padding:0 18px;gap:12px}.chathead .who{flex:1;min-width:0}.chathead .actions{display:flex;gap:3px}.messages{flex:1;overflow:auto;padding:24px clamp(14px,5vw,75px);display:flex;flex-direction:column;gap:7px;background-color:#0b141a;background-image:radial-gradient(#15252b 0.7px,transparent .7px);background-size:18px 18px}.daylabel{align-self:center;background:#18272e;color:#aab7bd;padding:6px 12px;border-radius:8px;font-size:11px;margin-bottom:10px}.msg{max-width:min(72%,520px);padding:8px 10px 5px;border-radius:9px;background:var(--incoming);box-shadow:0 1px 1px #0002;overflow-wrap:anywhere;white-space:pre-wrap}.msg.mine{align-self:flex-end;background:var(--bubble);border-top-right-radius:2px}.msg.theirs{align-self:flex-start;border-top-left-radius:2px}.msg .stamp{display:flex;justify-content:flex-end;gap:5px;font-size:10px;color:#b1c9c2;margin-top:3px}.msg.theirs .stamp{color:var(--muted)}.composer{padding:12px 18px;background:var(--panel2);display:flex;align-items:flex-end;gap:10px}.composebox{flex:1;display:flex;align-items:flex-end;background:#2a3942;border-radius:12px;padding:9px 12px;gap:9px}.composebox textarea{resize:none;max-height:120px;min-height:24px;background:transparent;border:0;outline:0;color:var(--text);width:100%;line-height:24px}.send{width:43px;height:43px;border-radius:50%;display:grid;place-items:center;background:var(--green);color:#052d26;font-size:19px}.send:hover{background:#20c7a4}.emptychat{margin:auto;text-align:center;color:var(--muted);padding:25px}.emptychat h2{color:var(--text)}.mobileback{display:none}.notice{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#e9edef;color:#18252b;padding:11px 17px;border-radius:10px;box-shadow:0 8px 30px #0005;z-index:99;font-size:13px;max-width:90vw}.modalback{position:fixed;inset:0;background:#000b;display:grid;place-items:center;padding:18px;z-index:10;overflow:auto}.modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;width:min(440px,100%);max-height:90dvh;overflow:auto;padding:22px;box-shadow:0 20px 70px #0008}.modal h2{margin:0 0 5px}.modal p{color:var(--muted);font-size:13px}.modal label{display:block;margin-top:14px;font-size:12px;color:var(--muted)}.modal input{margin-top:6px;width:100%;padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);color:var(--text)}.primary{margin-top:18px;width:100%;padding:12px;border-radius:9px;background:var(--green);color:#052d26;font-weight:750}.secondary{margin-top:8px;width:100%;padding:10px;border-radius:9px;background:transparent;color:var(--muted)}.linkbtn{background:none;color:#69d9bc;padding:10px}.resultrow{display:flex;align-items:center;gap:10px;width:100%;padding:11px 8px;border-radius:9px;background:transparent;text-align:left}.resultrow:hover{background:var(--panel2)}.status{padding:7px 12px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--line)}.mobileonly{display:none}.hidden{display:none!important}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--text);height:100vh;overflow:hidden}button,input,textarea{font:inherit}button{cursor:pointer;color:inherit;border:0}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--green);outline-offset:2px}.app{height:100dvh;display:grid;grid-template-columns:340px minmax(0,1fr);max-width:1600px;margin:auto;background:var(--panel)}.sidebar{border-right:1px solid var(--line);display:flex;flex-direction:column;min-width:0}.top{height:68px;padding:0 18px;display:flex;align-items:center;justify-content:space-between;background:var(--panel2)}.brand{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:750;letter-spacing:-.5px}.logo{width:36px;height:36px;border-radius:12px;background:var(--green);display:grid;place-items:center;color:#062d27}.logo svg{width:23px}.iconbtn{width:38px;height:38px;display:grid;place-items:center;border-radius:50%;background:transparent;color:var(--muted);font-size:20px}.iconbtn:hover{background:#34434b;color:var(--text)}.profile{padding:13px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}.avatar{width:43px;height:43px;border-radius:50%;display:grid;place-items:center;flex:none;background:#236b60;color:#fff;font-weight:700;font-size:17px}.profile .meta{flex:1;min-width:0}.name{font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sub{color:var(--muted);font-size:12px}.search{padding:10px 12px}.searchbox{display:flex;align-items:center;gap:9px;background:var(--panel2);padding:0 13px;border-radius:9px;height:40px;color:var(--muted)}.searchbox input{background:transparent;border:0;outline:0;color:var(--text);width:100%;min-width:0}.filters{display:flex;gap:8px;padding:0 12px 10px}.filter{border-radius:20px;padding:6px 13px;background:var(--panel2);color:var(--muted);font-size:12px}.filter.active{background:#123d36;color:#69d9bc}.chatlist{overflow:auto;flex:1}.chatrow{width:100%;text-align:left;display:flex;gap:12px;padding:13px 15px;background:transparent;border-bottom:1px solid #202b31;align-items:center}.chatrow:hover{background:#18252b}.chatrow.active{background:#2a3942}.chatrow .details{min-width:0;flex:1}.chatrow .line1,.chatrow .line2{display:flex;align-items:center;justify-content:space-between;gap:8px}.chatrow .preview{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px}.time{color:var(--muted);font-size:11px;white-space:nowrap}.emptylist{padding:30px 20px;text-align:center;color:var(--muted)}.main{display:flex;flex-direction:column;min-width:0;background:#0b141a;position:relative}.welcome{margin:auto;text-align:center;max-width:430px;padding:28px}.welcome .biglogo{width:100px;height:100px;border-radius:32px;background:#102c29;color:var(--green);display:grid;place-items:center;margin:0 auto 24px}.welcome h1{font-size:30px;margin:0 0 10px;letter-spacing:-1px}.welcome p{color:var(--muted)}.welcome .hint{font-size:12px;margin-top:28px;border-top:1px solid var(--line);padding-top:18px}.conversation{display:flex;flex-direction:column;height:100%;min-height:0}.chathead{height:68px;background:var(--panel2);display:flex;align-items:center;padding:0 18px;gap:12px}.chathead .who{flex:1;min-width:0}.chathead .actions{display:flex;gap:3px}.messages{flex:1;overflow:auto;padding:24px clamp(14px,5vw,75px);display:flex;flex-direction:column;gap:7px;background-color:#0b141a;background-image:radial-gradient(#15252b 0.7px,transparent .7px);background-size:18px 18px}.daylabel{align-self:center;background:#18272e;color:#aab7bd;padding:6px 12px;border-radius:8px;font-size:11px;margin-bottom:10px}.msg{max-width:min(72%,520px);padding:8px 10px 5px;border-radius:9px;background:var(--incoming);box-shadow:0 1px 1px #0002;overflow-wrap:anywhere;white-space:pre-wrap}.msg.mine{align-self:flex-end;background:var(--bubble);border-top-right-radius:2px}.msg.theirs{align-self:flex-start;border-top-left-radius:2px}.msg .stamp{display:flex;justify-content:flex-end;gap:5px;font-size:10px;color:#b1c9c2;margin-top:3px}.msg.theirs .stamp{color:var(--muted)}.composer{padding:12px 18px;background:var(--panel2);display:flex;align-items:flex-end;gap:10px}.composebox{flex:1;display:flex;align-items:flex-end;background:#2a3942;border-radius:12px;padding:9px 12px;gap:9px}.composebox textarea{resize:none;max-height:120px;min-height:24px;background:transparent;border:0;outline:0;color:var(--text);width:100%;line-height:24px}.send{width:43px;height:43px;border-radius:50%;display:grid;place-items:center;background:var(--green);color:#052d26;font-size:19px}.send:hover{background:#20c7a4}.emptychat{margin:auto;text-align:center;color:var(--muted);padding:25px}.emptychat h2{color:var(--text)}.mobileback{display:none}.notice{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#e9edef;color:#18252b;padding:11px 17px;border-radius:10px;box-shadow:0 8px 30px #0005;z-index:99;font-size:13px;max-width:90vw}.modalback{position:fixed;inset:0;background:#000b;display:grid;place-items:center;padding:18px;z-index:10;overflow:auto}.modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;width:min(440px,100%);max-height:90dvh;overflow:auto;padding:22px;box-shadow:0 20px 70px #0008}.modal h2{margin:0 0 5px}.modal p{color:var(--muted);font-size:13px}.modal label{display:block;margin-top:14px;font-size:12px;color:var(--muted)}.modal input{margin-top:6px;width:100%;padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);color:var(--text)}.primary{margin-top:18px;width:100%;padding:12px;border-radius:9px;background:var(--green);color:#052d26;font-weight:750}.secondary{margin-top:8px;width:100%;padding:10px;border-radius:9px;background:transparent;color:var(--muted)}.linkbtn{background:none;color:#69d9bc;padding:10px}.resultrow{display:flex;align-items:center;gap:10px;width:100%;padding:11px 8px;border-radius:9px;background:transparent;text-align:left}.resultrow:hover{background:var(--panel2)}.status{padding:7px 12px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--line)}.mobileonly{display:none}.hidden{display:none!important}.callbtn{width:40px;height:40px;border-radius:50%;background:#173d36;color:#72e2c4;font-size:19px}.callbtn:hover{background:#205448}.callback{position:fixed;inset:0;background:#000b;z-index:50;display:grid;place-items:center;padding:18px}.callcard{width:min(380px,100%);background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:26px;text-align:center;box-shadow:0 20px 70px #0008}.callcard .avatar{width:76px;height:76px;margin:8px auto 16px;font-size:26px}.callcard h2{margin:0 0 6px}.callcard p{color:var(--muted);font-size:13px}.callactions{display:flex;justify-content:center;gap:12px;margin-top:22px}.callactions button{padding:12px 18px;border-radius:12px;font-weight:700}.acceptcall{background:var(--green);color:#062d27}.endcall{background:#a83242;color:white}.mutecall{background:var(--panel2)}.callstatus{font-size:13px;color:#72e2c4;margin-top:8px}
 @media(max-width:720px){.app{grid-template-columns:1fr}.sidebar{border:0}.main{display:none}.app.showchat .sidebar{display:none}.app.showchat .main{display:flex}.mobileback{display:grid}.top{height:60px}.chathead{height:60px}.msg{max-width:88%}.messages{padding:18px 12px}.composer{padding:9px}.mobileonly{display:grid}}
 </style>
 </head>
@@ -24,20 +24,20 @@
 <main class="main" id="main">
  <div class="welcome" id="welcome"><div class="biglogo"><svg viewBox="0 0 24 24" width="58" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.5 11.5a8.4 8.4 0 0 1-12.4 7.4L3 20l1.2-4.7A8.5 8.5 0 1 1 20.5 11.5Z"/><path d="M8 8.5c.7 2.5 2.3 4.1 4.8 5"/></svg></div><h1>ChatWave</h1><p>Messages that flow. Find your friends and start talking.</p><button class="primary" style="max-width:210px" id="startChat">＋ Start a chat</button><div class="hint">🔒 Your messages are stored online and access is restricted to conversation members.<br>Use a fictional ChatWave number — no real phone or email required.</div></div>
  <section class="conversation" id="conversation" hidden>
-  <header class="chathead"><button class="iconbtn mobileback" id="back" aria-label="Back">‹</button><div class="avatar" id="chatAvatar">?</div><div class="who"><div class="name" id="chatName">Chat</div><div class="sub" id="chatSub">ChatWave conversation</div></div></header>
+  <header class="chathead"><button class="iconbtn mobileback" id="back" aria-label="Back">‹</button><div class="avatar" id="chatAvatar">?</div><div class="who"><div class="name" id="chatName">Chat</div><div class="sub" id="chatSub">ChatWave conversation</div></div><button class="callbtn" id="voiceCall" title="Voice call" aria-label="Start voice call">☎</button></header>
   <div class="messages" id="messages"></div>
   <form class="composer" id="composer"><button type="button" class="iconbtn" id="emoji" title="Add emoji">☺</button><div class="composebox"><textarea id="message" rows="1" placeholder="Type a message" aria-label="Message" maxlength="4000"></textarea></div><button class="send" aria-label="Send message" title="Send">➤</button></form>
  </section>
 </main>
 </div>
-<div id="overlay"></div><div id="toast" class="notice" hidden></div>
+<div id="overlay"></div><div id="callOverlay"></div><audio id="remoteAudio" autoplay playsinline></audio><div id="toast" class="notice" hidden></div>
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = 'https://dhylbrxixjrtqufqrnjh.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_g8isti4XwuZ_jukxgAzV9A_3ULHt_LN';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
-const state = { user:null, profile:null, chats:[], active:null, channel:null, realtime:null, filter:'all', loading:false };
+const state = { user:null, profile:null, chats:[], active:null, channel:null, realtime:null, filter:'all', loading:false, callChannels:{}, call:null };
 let toastTimer = null;
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function initials(s){return String(s||'?').trim().split(/\s+/).slice(0,2).map(x=>x.charAt(0)).join('').toUpperCase()||'?';}
@@ -151,6 +151,7 @@ async function loadChats(){
   return {id:c.id,name:names[other?.user_id]||'Unknown user',otherId:other?.user_id,created_at:c.created_at,last};
  }).sort((a,b)=>new Date(b.last?.created_at||b.created_at)-new Date(a.last?.created_at||a.created_at));
  renderList();
+ await setupCallChannels();
 }
 function current(){return state.chats.find(c=>c.id===state.active);}
 function renderList(){
@@ -199,6 +200,131 @@ async function searchUsers(query){
   catch(e){notify(e.message||'Could not start the chat.');btn.disabled=false;}
  });
 }
+
+function callMarkup(title, name, status, buttons){
+ return '<div class="callback"><div class="callcard"><div class="avatar">'+esc(initials(name))+'</div><h2>'+esc(title)+'</h2><p>'+esc(name)+'</p><div class="callstatus">'+esc(status)+'</div><div class="callactions">'+buttons+'</div></div></div>';
+}
+async function setupCallChannels(){
+ if(!state.user)return;
+ const wanted=new Set(state.chats.map(c=>c.id));
+ for(const [id,ch] of Object.entries(state.callChannels)){
+  if(!wanted.has(id)){await supabase.removeChannel(ch);delete state.callChannels[id];}
+ }
+ for(const c of state.chats){
+  if(state.callChannels[c.id])continue;
+  const ch=supabase.channel('call:'+c.id,{config:{private:true,broadcast:{self:false}}});
+  ch.on('broadcast',{event:'signal'},({payload})=>handleCallSignal(c.id,payload)).subscribe(status=>{
+   if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')console.warn('Call signaling channel issue',c.id,status);
+  });
+  state.callChannels[c.id]=ch;
+ }
+}
+async function sendCallSignal(conversationId,payload){
+ const ch=state.callChannels[conversationId];
+ if(!ch)throw new Error('Call connection is not ready. Try again in a moment.');
+ const result=await ch.send({type:'broadcast',event:'signal',payload:{...payload,from:state.user.id}});
+ if(result!=='ok')throw new Error('Could not send call signal ('+result+').');
+}
+function renderCall(title,status, incoming=false){
+ const c=state.call;
+ if(!c){$('callOverlay').innerHTML='';return;}
+ const name=c.name||'ChatWave user';
+ let buttons='';
+ if(incoming){
+  buttons='<button class="endcall" id="declineCall">Decline</button><button class="acceptcall" id="acceptCall">Accept</button>';
+ }else{
+  buttons=(c.pc&&c.pc.connectionState==='connected'?'<button class="mutecall" id="muteCall">'+(c.muted?'Unmute':'Mute')+'</button>':'')+'<button class="endcall" id="endCall">End call</button>';
+ }
+ $('callOverlay').innerHTML=callMarkup(title,name,status,buttons);
+ if($('acceptCall'))$('acceptCall').onclick=()=>acceptIncomingCall();
+ if($('declineCall'))$('declineCall').onclick=()=>finishCall('declined',true);
+ if($('endCall'))$('endCall').onclick=()=>finishCall('ended',true);
+ if($('muteCall'))$('muteCall').onclick=()=>{if(!state.call)return;state.call.muted=!state.call.muted;state.call.stream?.getAudioTracks().forEach(t=>t.enabled=!state.call.muted);renderCall('Voice call',state.call.pc?.connectionState==='connected'?'Connected': 'Connecting…');};
+}
+function newPeer(c){
+ const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun.cloudflare.com:3478'}]});
+ c.pc=pc;
+ pc.onicecandidate=e=>{if(e.candidate)sendCallSignal(c.conversationId,{type:'ice',callId:c.id,candidate:e.candidate}).catch(console.warn);};
+ pc.ontrack=e=>{$('remoteAudio').srcObject=e.streams[0];$('remoteAudio').play().catch(()=>notify('Tap the audio controls if sound is blocked.'));};
+ pc.onconnectionstatechange=()=>{
+  if(!state.call||state.call.id!==c.id)return;
+  if(pc.connectionState==='connected')renderCall('Voice call','Connected · audio is live');
+  else if(pc.connectionState==='failed')renderCall('Voice call','Connection failed. Try again or use another network.');
+  else if(pc.connectionState==='disconnected')renderCall('Voice call','Reconnecting…');
+ };
+ return pc;
+}
+async function startVoiceCall(){
+ const chat=current();
+ if(!state.user||!chat)return;
+ if(state.call){notify('Finish your current call first.');return;}
+ if(!chat.otherId){notify('Could not find the other participant.');return;}
+ const c={id:crypto.randomUUID(),conversationId:chat.id,name:chat.name,otherId:chat.otherId,initiator:true,accepted:false,stream:null,pc:null,iceQueue:[],muted:false};
+ state.call=c;renderCall('Calling…','Waiting for '+chat.name+' to answer');
+ try{
+  await setupCallChannels();
+  c.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});
+  c.pc=newPeer(c);c.stream.getTracks().forEach(t=>c.pc.addTrack(t,c.stream));
+  await sendCallSignal(c.conversationId,{type:'invite',callId:c.id,to:c.otherId,name:state.profile.username});
+ }catch(e){await finishCall('failed',true);notify(e.message||'Could not start the call. Allow microphone access and try again.');}
+}
+async function acceptIncomingCall(){
+ const c=state.call;if(!c||c.initiator)return;
+ try{
+  c.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});
+  c.pc=newPeer(c);c.stream.getTracks().forEach(t=>c.pc.addTrack(t,c.stream));c.accepted=true;
+  renderCall('Voice call','Connecting…');
+  await sendCallSignal(c.conversationId,{type:'accept',callId:c.id,to:c.otherId});
+  if(c.pendingOffer){await processCallOffer(c,c.pendingOffer);c.pendingOffer=null;}
+ }catch(e){await finishCall('failed',true);notify(e.message||'Microphone access failed. Check browser permissions.');}
+}
+async function processCallOffer(c,offer){
+ if(!c.pc||!c.accepted){c.pendingOffer=offer;return;}
+ await c.pc.setRemoteDescription(new RTCSessionDescription(offer));
+ for(const candidate of c.iceQueue.splice(0)){try{await c.pc.addIceCandidate(new RTCIceCandidate(candidate));}catch(e){console.warn(e);}}
+ const answer=await c.pc.createAnswer();await c.pc.setLocalDescription(answer);
+ await sendCallSignal(c.conversationId,{type:'answer',callId:c.id,description:c.pc.localDescription,to:c.otherId});
+ renderCall('Voice call','Connecting audio…');
+}
+async function handleCallSignal(conversationId,p){
+ if(!p||p.from===state.user?.id)return;
+ if(p.type==='invite'&&p.to===state.user?.id){
+  if(state.call){sendCallSignal(conversationId,{type:'busy',callId:p.callId,to:p.from}).catch(()=>{});return;}
+  const chat=state.chats.find(x=>x.id===conversationId);
+  state.call={id:p.callId,conversationId,name:chat?.name||p.name||'ChatWave user',otherId:p.from,initiator:false,accepted:false,stream:null,pc:null,iceQueue:[],muted:false};
+  renderCall('Incoming voice call','Someone is calling you',true);return;
+ }
+ const c=state.call;
+ if(!c||c.conversationId!==conversationId||p.callId!==c.id)return;
+ try{
+  if(p.type==='accept'&&c.initiator){
+   c.accepted=true;
+   const offer=await c.pc.createOffer();await c.pc.setLocalDescription(offer);
+   await sendCallSignal(c.conversationId,{type:'offer',callId:c.id,description:c.pc.localDescription,to:c.otherId});
+   renderCall('Voice call','Connecting audio…');
+  }else if(p.type==='offer'&&!c.initiator){
+   await processCallOffer(c,p.description);
+  }else if(p.type==='answer'&&c.initiator){
+   await c.pc.setRemoteDescription(new RTCSessionDescription(p.description));
+   for(const candidate of c.iceQueue.splice(0)){try{await c.pc.addIceCandidate(new RTCIceCandidate(candidate));}catch(e){console.warn(e);}}
+   renderCall('Voice call','Connecting audio…');
+  }else if(p.type==='ice'){
+   if(c.pc?.remoteDescription){await c.pc.addIceCandidate(new RTCIceCandidate(p.candidate));}
+   else c.iceQueue.push(p.candidate);
+  }else if(p.type==='decline'||p.type==='ended'){
+   await finishCall(p.type,false);notify(p.type==='decline'?'Call declined.':'Call ended.');
+  }else if(p.type==='busy'){await finishCall('busy',false);notify('They are already on another call.');}
+ }catch(e){console.warn('Call signal error',e);notify('Call connection hit a problem. Try calling again.');}
+}
+async function finishCall(reason, notifyPeer){
+ const c=state.call;if(!c)return;
+ state.call=null;
+ if(notifyPeer){sendCallSignal(c.conversationId,{type:reason==='declined'?'decline':'ended',callId:c.id,to:c.otherId}).catch(()=>{});}
+ try{c.pc?.close();}catch(e){}
+ try{c.stream?.getTracks().forEach(t=>t.stop());}catch(e){}
+ $('remoteAudio').srcObject=null;$('callOverlay').innerHTML='';
+}
+
 function newChatModal(){
  if(!state.user){onboardingModal();return;}
  $('overlay').innerHTML='<div class="modalback" id="modalback"><div class="modal"><h2>Add a friend</h2><p>Enter their fictional ChatWave number. These numbers only work inside ChatWave.</p><label>ChatWave number<input id="userSearch" placeholder="07482 123456" maxlength="24" autocomplete="off"></label><div id="userResults" style="margin-top:12px;color:var(--muted);font-size:13px">Ask your friend for their ChatWave number.</div><button class="secondary" id="cancelModal">Close</button></div></div>';
@@ -214,6 +340,7 @@ function profileModal(){
  $('usernameForm').onsubmit=async e=>{e.preventDefault();const username=$('newUsername').value.trim().toLowerCase();if(!/^[a-z0-9_]{3,20}$/.test(username)){notify('Username must be 3–20 letters, numbers, or underscores.');return;}const btn=$('usernameForm').querySelector('button');btn.disabled=true;try{const {error}=await supabase.from('profiles').update({username}).eq('id',state.user.id);if(error)throw error;state.profile.username=username;$('myName').textContent=username;$('myAvatar').textContent=initials(username);await loadChats();closeModal();notify('Username updated.');}catch(err){notify(err.message||'Could not update username.');btn.disabled=false;}};
 }
 $('newChat').onclick=$('startChat').onclick=newChatModal;
+$('voiceCall').onclick=startVoiceCall;
 $('profileBtn').onclick=profileModal;
 $('search').oninput=renderList;
 $('back').onclick=()=>$('app').classList.remove('showchat');
