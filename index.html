@@ -71,7 +71,7 @@ async function chatwaveAuth(payload){
 function cleanPhone(value){return String(value||'').replace(/[^0-9+]/g,'');}
 function onboardingModal(){
  modal('You’re invited to ChatWave','Enter a friend’s invite code to unlock account creation. You’ll make your own fictional ChatWave number next.',[
-  {name:'invite_code',label:'Invite code',placeholder:'CW-7K9P-2MXQ',max:12,autocomplete:'off'}
+  {name:'invite_code',label:'Invite code',placeholder:'CW-7K9P-2MXQ',max:13,autocomplete:'off'}
  ],'Continue',async d=>{
   const code=d.invite_code.toUpperCase().replace(/\s+/g,'');
   const {data,error}=await supabase.rpc('chatwave_check_onboarding_invite',{p_invite_code:code});
