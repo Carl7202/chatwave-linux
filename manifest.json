@@ -1,13 +1,18 @@
 {
-  "name": "ChatWave",
-  "short_name": "ChatWave",
-  "description": "Real-time messages, voice calls and voicemails.",
+  "name": "opix",
+  "short_name": "opix",
+  "description": "Simple conversations.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#313338",
-  "theme_color": "#5865f2",
+  "background_color": "#101116",
+  "theme_color": "#101116",
   "icons": [
-    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
   ]
 }
